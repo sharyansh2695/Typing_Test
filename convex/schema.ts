@@ -14,6 +14,10 @@ export default defineSchema({
     content: v.string(), // the paragraph text
     difficulty: v.optional(v.string()), // optional (easy, medium, hard)
   }),
+  timeSettings: defineTable({
+    duration: v.number(), // in seconds (e.g., 60, 90, etc.)
+    label: v.optional(v.string()), // optional tag like "easy", "medium", "hard"
+  }),
   results: defineTable({
   studentId: v.id("students"),
   paragraphId: v.id("paragraphs"),

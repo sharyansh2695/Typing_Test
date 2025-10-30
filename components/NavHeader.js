@@ -42,7 +42,7 @@ const NavHeader = ({ currentSpeed }) => {
         <h1 data-text="Typing Test Website">Typing Test </h1>
       </Logo>
 
-      <HighestSpeedContainer isTrue={isTrue} currentSpeed={currentSpeed}>
+      {/* <HighestSpeedContainer isTrue={isTrue} currentSpeed={currentSpeed}>
         <h2>
           Highest Speed:{" "}
           <span>
@@ -51,7 +51,7 @@ const NavHeader = ({ currentSpeed }) => {
         </h2>
 
         {isTrue ? <Animation></Animation> : null}
-      </HighestSpeedContainer>
+      </HighestSpeedContainer> */}
     </MainDiv>
   );
 };

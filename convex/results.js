@@ -9,34 +9,37 @@ export const saveResult = mutation({
     symbols: v.number(),
     seconds: v.number(),
     accuracy: v.optional(v.number()),
+    wpm: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const { studentId, paragraphId, symbols, seconds, accuracy } = args;
+    const { studentId, paragraphId, symbols, seconds, accuracy, wpm } = args;
 
-    // Avoid divide by zero
-    if (seconds <= 0) {
-      throw new Error("Invalid seconds value");
+    // 🧮 Avoid invalid inputs
+    if (!studentId || !paragraphId || seconds <= 0) {
+      throw new Error("Invalid data provided");
     }
 
-    // ✅ Correct WPM calculation
-    const wpm = (symbols * 60) / (5 * seconds);
+    // ✅ Compute WPM correctly
+    const calculatedWpm = wpm ?? Math.round((symbols * 60) / (5 * seconds));
 
-    // Save result in DB
+    // 💾 Insert into results table
     await ctx.db.insert("results", {
       studentId,
       paragraphId,
       symbols,
       seconds,
       accuracy: accuracy ?? null,
-      wpm: Math.round(wpm),
+      wpm: calculatedWpm,
       createdAt: new Date().toISOString(),
     });
 
-    return { success: true, wpm: Math.round(wpm) };
+    console.log("✅ Result stored for student:", studentId);
+
+    return { success: true, wpm: calculatedWpm };
   },
 });
 
-// 🧾 Get the highest speed of a student
+// 🧾 Fetch highest WPM of a student
 export const getHighestSpeed = query({
   args: { studentId: v.id("students") },
   handler: async (ctx, { studentId }) => {

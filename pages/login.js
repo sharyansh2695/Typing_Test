@@ -16,16 +16,18 @@ export default function LoginPage() {
     setMessage("Checking credentials...");
 
     try {
-      const res = await verifyStudent({ name, rollNumber });
-      if (res.success) {
-        setMessage("✅ Login successful! Redirecting...");
-        localStorage.setItem("studentName", name);
-        localStorage.setItem("rollNumber", rollNumber);
-        setTimeout(() => router.push("/"), 1000);
-      } else {
-        setMessage("❌ " + res.message);
-      }
+     const res = await verifyStudent({ name, rollNumber });
+if (res.success) {
+  setMessage("✅ Login successful! Redirecting...");
+  localStorage.setItem("studentId", res.studentId); // ✅ Store Convex ID
+  localStorage.setItem("studentName", name);
+  localStorage.setItem("rollNumber", rollNumber);
+  setTimeout(() => router.push("/"), 1000);
+} else {
+  setMessage("❌ " + res.message);
+}
     } catch (err) {
+      console.error(err);
       setMessage("Error connecting to server");
     }
   };
@@ -41,7 +43,10 @@ export default function LoginPage() {
       }}
     >
       <h1>Typing Test Login</h1>
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", width: 300 }}>
+      <form
+        onSubmit={handleSubmit}
+        style={{ display: "flex", flexDirection: "column", width: 300 }}
+      >
         <input
           type="text"
           placeholder="Enter your name"
@@ -58,7 +63,9 @@ export default function LoginPage() {
           required
           style={{ marginBottom: 10, padding: 8 }}
         />
-        <button type="submit" style={{ padding: 8 }}>Login</button>
+        <button type="submit" style={{ padding: 8 }}>
+          Login
+        </button>
       </form>
       <p>{message}</p>
     </div>
