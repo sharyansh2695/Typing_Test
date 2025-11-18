@@ -17,8 +17,7 @@ const Speed = (props) => {
   return (
     <Div isSpeed={wpm >= 50}>
       <h3
-        ref={elementRef}
-        onClick={() => props.typingCardCallback(Math.round(wpm))}
+        ref={elementRef}       
       >
         {Math.round(wpm)} wpm
       </h3>
