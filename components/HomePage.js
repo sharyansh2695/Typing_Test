@@ -1,90 +1,53 @@
 import { useState } from "react";
 import styled from "styled-components";
-import Image from "next/image";
-import { headingAnimationColor, primaryColor } from "../constants/color";
+import { primaryColor } from "../constants/color";
 import TypingCard from "./TypingCard";
 import NavHeader from "./NavHeader";
 
 const HomePage = () => {
   const [currentSpeed, setCurrentSpeed] = useState(0);
 
-  const homepageCallback = (currentSpeed) => {
-    setCurrentSpeed(currentSpeed);
-  };
+  const homepageCallback = (speed) => setCurrentSpeed(speed);
 
   return (
-    <Div>
-      <MainDiv>
+    <PageContainer>
+      <MainCard>
         <NavHeader currentSpeed={currentSpeed} />
-        <MainContainer>
-          <LeftContainer>
-            <TypingCard homepageCallback={homepageCallback} />
-          </LeftContainer>
-          <RightContainer>
-            <h3>
-              Developer:
-              <span> Sharyansh Chhikara_23/EC/187 </span>
-            </h3>
-          </RightContainer>
-        </MainContainer>
-      </MainDiv>
-    </Div>
+        <Content>
+          <TypingCard homepageCallback={homepageCallback} />
+        </Content>
+      </MainCard>
+    </PageContainer>
   );
 };
 
 export default HomePage;
 
-const Div = styled.div`
-  padding: 10px;
-  width: 100%;
-  height: 100%;
-
-  @media (min-width: 968px) {
-    height: 100vh;
-    width: 100vw;
-  }
-`;
-
-const MainDiv = styled.div`
-  width: 100%;
-  height: 100%;
-  background-color: ${primaryColor};
-  border-radius: 0.8rem;
-  box-shadow: 0 0 10px 3px rgba(87, 19, 0, 0.5);
-  overflow: hidden;
-`;
-
-const MainContainer = styled.div`
-  display: grid;
-  width: 100%;
-  padding: 0 250px;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
-
-  @media (min-width: 986px) {
-    grid-template-columns: repeat(2, 1fr);
-  }
-`;
-
-const LeftContainer = styled.div``;
-const RightContainer = styled.div`
-  position: relative;
-  width: 100%;
+const PageContainer = styled.div`
+  height: 100vh;
+  width: 100vw;
   display: flex;
   justify-content: center;
   align-items: center;
+`;
 
-  h3 {
-    width: 300px;
-    position: absolute;
-    bottom: 0;
-    left: 150%;
-    line-height: 2rem;
-    transform: translateX(-50%);
-    text-align: center;
-    color: #ffffff;
+const MainCard = styled.div`
+  width: 90%;
+  max-width: 1000px;
+  min-height: 80vh;
+  background: #ffffff;
+  border-radius: 1rem;
+  box-shadow: 0px 8px 25px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+`;
 
-    span {
-      color: ${headingAnimationColor};
-    }
-  }
+const Content = styled.div`
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
 `;
