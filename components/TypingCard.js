@@ -8,203 +8,212 @@ import { useRouter } from "next/router";
 export default function TypingCard({ homepageCallback }) {
   const router = useRouter();
 
+  // Convex queries/mutations
   const paragraph = useQuery(api.paragraphs.getRandomParagraph);
   const timeSetting = useQuery(api.timeSettings.getTimeSetting);
   const saveResult = useMutation(api.results.saveResult);
 
-  const [paragraphId, setParagraphId] = useState(null);
-
+  // Visible state
   const [text, setText] = useState("");
-  const [userInput, setUserInput] = useState("");
-  const [symbols, setSymbols] = useState(0);
-  const [sec, setSec] = useState(0);
-
+  const [countDown, setCountDown] = useState(null);
+  const [typingEnabled, setTypingEnabled] = useState(false);
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
-  const [typingEnabled, setTypingEnabled] = useState(false);
-  const [countDown, setCountDown] = useState(null);
-
-  const [locked, setLocked] = useState(false);
   const [errorIndex, setErrorIndex] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
-  const [hasSubmitted, setHasSubmitted] = useState(false);
 
+  // Refs (latest values / no re-render)
+  const paragraphIdRef = useRef(null);
+  const userInputRef = useRef("");
+  const secRef = useRef(0);
+  const backspaceCountRef = useRef(0); // ⭐ MISTAKES
   const intervalRef = useRef(null);
+  const submittedRef = useRef(false);
   const textareaRef = useRef(null);
 
-  /* Redirect to login */
+  // Controlled textarea
+  const [userInputState, setUserInputState] = useState("");
+
+  // Redirect to login 
   useEffect(() => {
     const studentId = localStorage.getItem("studentId");
     if (!studentId) router.replace("/login");
   }, [router]);
 
-  /* Load paragraph + timer before typing */
+  // Reset when new paragraph loads 
   useEffect(() => {
     if (!paragraph || !timeSetting) return;
+    const pid = paragraph?._id;
+    if (!pid) return;
 
-    if (paragraph?._id && paragraphId !== paragraph._id) {
-      setParagraphId(paragraph._id);
+    if (paragraphIdRef.current !== pid) {
+      paragraphIdRef.current = pid;
+      setText(paragraph.content || "");
+      userInputRef.current = "";
+      setUserInputState("");
+      secRef.current = 0;
+      backspaceCountRef.current = 0;
+      setCountDown(timeSetting.duration || 60);
+      setTypingEnabled(false);
+      setStarted(false);
+      setFinished(false);
+      submittedRef.current = false;
+      setErrorIndex(null);
+      setErrorMessage("");
     }
+  }, [paragraph, timeSetting]);
 
-    if (hasSubmitted) return;
-    if (started || typingEnabled || finished) return;
+  // Save result 
+  const handleSaveResultToDB = useCallback(
+    async ({ input, seconds }) => {
+      const studentId = localStorage.getItem("studentId") || "unknown";
 
-    setText(paragraph.content || "");
-    setUserInput("");
-    setSymbols(0);
-    setSec(0);
-    setLocked(false);
-    setErrorMessage("");
-    setErrorIndex(null);
-    setCountDown(timeSetting.duration || 60);
-  }, [
-    paragraph,
-    timeSetting,
-    paragraphId,
-    started,
-    typingEnabled,
-    finished,
-    hasSubmitted,
-  ]);
+      let correctChars = 0;
+      for (let i = 0; i < input.length; i++) {
+        if (input[i] === text[i]) correctChars++;
+      }
 
-  const handleSaveResult = async ({ input, seconds }) => {
-    console.log("🔵 handleSaveResult CALLED");
+      const duration = timeSetting?.duration || 60;
+      const secondsTaken = seconds === 0 ? duration : seconds;
 
-    const studentId = localStorage.getItem("studentId");
+      // ⭐ Accuracy based on mistakes
+      const totalTyped = input.length + backspaceCountRef.current;
+      const mistakes = backspaceCountRef.current;
 
-    let correctChars = 0;
-    for (let i = 0; i < input.length; i++) {
-      if (input[i] === text[i]) correctChars++;
-    }
+      const accuracy =
+        totalTyped === 0 ? 0 :
+        Math.round(((totalTyped - mistakes) / totalTyped) * 100);
 
-    const duration = timeSetting?.duration || 60;
-    const secondsTaken = seconds === 0 ? duration : seconds;
+      const wpm = Math.round((correctChars * 60) / (5 * secondsTaken));
 
-    const accuracy =
-      input.length === 0
-        ? 0
-        : Math.round((correctChars / input.length) * 100);
+      const payload = {
+        studentId,
+        paragraphId: paragraphIdRef.current,
+        symbols: correctChars,
+        seconds: secondsTaken,
+        accuracy,
+        wpm,
+        text: input,
+      };
 
-    const wpm = Math.round((correctChars * 60) / (5 * secondsTaken));
+      const res = await saveResult(payload);
+      return res;
+    },
+    [saveResult, text, timeSetting]
+  );
 
-    console.log("🟡 Sending to DB:", {
-      studentId,
-      paragraphId,
-      symbols: correctChars,
-      seconds: secondsTaken,
-      accuracy,
-      wpm,
-      text: input,
-    });
-
-    const res = await saveResult({
-      studentId,
-      paragraphId,
-      symbols: correctChars,
-      seconds: secondsTaken,
-      accuracy,
-      wpm,
-      text: input,
-    });
-
-    console.log("🟢 DB Save OK:", res);
-  };
-
-  /* Auto submit when time ends */
-  const autoSubmit = async () => {
-    console.log("🚀 autoSubmit TRIGGERED");
-
-    if (finished) return;
+  // Auto submit 
+  const doAutoSubmit = useCallback(async () => {
+    if (submittedRef.current) return;
+    submittedRef.current = true;
 
     if (intervalRef.current) clearInterval(intervalRef.current);
 
     setFinished(true);
     setTypingEnabled(false);
-    setLocked(true);
-    setHasSubmitted(true);
 
-    console.log("💾 Saving final result...");
-
-    /* ✅ Pass real-time values to avoid 0 issues */
-    await handleSaveResult({
-      input: userInput,
-      seconds: sec,
+    await handleSaveResultToDB({
+      input: userInputRef.current,
+      seconds: secRef.current,
     });
 
-    router.replace("/test-submitted");
-  };
+    setTimeout(() => {
+      router.replace("/test-submitted");
+    }, 120);
+  }, [handleSaveResultToDB, router]);
 
-  /* Timer system */
+  /* Start timer */
   const startTimer = useCallback(() => {
     if (started) return;
 
+    const duration = timeSetting?.duration || 60;
+    setCountDown(duration);
+    secRef.current = 0;
+    backspaceCountRef.current = 0;
+
     setStarted(true);
+    setTypingEnabled(true);
+    setFinished(false);
+    submittedRef.current = false;
 
     if (intervalRef.current) clearInterval(intervalRef.current);
 
     intervalRef.current = setInterval(() => {
-      setSec((s) => s + 1);
-
-      setCountDown((c) => {
-        if (c <= 1) {
+      secRef.current++;
+      setCountDown((prev) => {
+        if (prev <= 1) {
           clearInterval(intervalRef.current);
-          autoSubmit();
+          intervalRef.current = null;
+          doAutoSubmit();
           return 0;
         }
-        return c - 1;
+        return prev - 1;
       });
     }, 1000);
-  }, [started, autoSubmit]);
+  }, [started, timeSetting, doAutoSubmit]);
 
-  /* Start test */
-  const onStartClick = () => {
-    setTypingEnabled(true);
-    setFinished(false);
-    setLocked(false);
+  // Cleanup timer 
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
 
-    setTimeout(() => textareaRef.current?.focus(), 50);
-    startTimer();
-  };
-
-  /* Typing logic */
+  //Typing Logic 
   const onUserInputChange = (e) => {
-    let value = e.target.value;
+    const value = e.target.value;
 
     if (!typingEnabled || finished) return;
     if (value.length > text.length) return;
 
-    if (locked) {
-      if (value.length < userInput.length) {
-        setUserInput(value);
+    // Lock— user must correct mistake with backspace
+    if (errorIndex !== null) {
+      // Only allow backspace
+      if (value.length < userInputRef.current.length) {
+        backspaceCountRef.current++;
+
+        userInputRef.current = value;
+        setUserInputState(value);
 
         if (text.startsWith(value)) {
-          setLocked(false);
-          setErrorMessage("");
           setErrorIndex(null);
+          setErrorMessage("");
         }
+      } else {
+        // block all typing except backspace
+        return;
       }
+
       return;
     }
 
-    const index = value.length - 1;
-    const expected = text[index];
-    const typed = value[index];
+    // Normal typing mode
+    const idx = value.length - 1;
+    const typedChar = value[idx];
+    const expected = text[idx];
 
-    if (typed && typed !== expected) {
-      setLocked(true);
-      setErrorIndex(index);
-      setUserInput(value);
+    if (typedChar && typedChar !== expected) {
+      setErrorIndex(idx);
+      //setErrorMessage("Incorrect character — press backspace to correct.");
+      userInputRef.current = value;
+      setUserInputState(value);
       return;
     }
 
-    setUserInput(value);
-    setSymbols(value.replace(/ /g, "").length);
-    setErrorMessage("");
+    userInputRef.current = value;
+    setUserInputState(value);
     setErrorIndex(null);
+    setErrorMessage("");
+  };
+
+  //Start test 
+  const onStartClick = () => {
+    setTimeout(() => textareaRef.current?.focus(), 50);
+    startTimer();
   };
 
   if (!paragraph || !timeSetting) return <Loader>Loading test...</Loader>;
-  if (countDown === null) return <Loader>Loading test...</Loader>;
+  if (countDown === null) return <Loader>Preparing test...</Loader>;
 
   return (
     <OuterWrapper>
@@ -215,14 +224,17 @@ export default function TypingCard({ homepageCallback }) {
         </Header>
 
         <TypingPanel>
-          <Preview text={text} userInput={userInput} errorIndex={errorIndex} />
+          <Preview text={text} userInput={userInputState} errorIndex={errorIndex} />
 
           <TextArea
             ref={textareaRef}
-            value={userInput}
+            value={userInputState}
             onChange={onUserInputChange}
             placeholder="Start typing here..."
             readOnly={!typingEnabled || finished}
+            onPaste={(e) => e.preventDefault()}     
+            onCopy={(e) => e.preventDefault()}      
+            onCut={(e) => e.preventDefault()}    
           />
 
           {errorMessage && <ErrorMessage>{errorMessage}</ErrorMessage>}
@@ -237,7 +249,6 @@ export default function TypingCard({ homepageCallback }) {
     </OuterWrapper>
   );
 }
-
 
 const ErrorMessage = styled.div`
   color: #d93025;
@@ -287,14 +298,11 @@ const Timer = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-
   color: ${({ urgent }) => (urgent ? "#ff4d4d" : "#007bff")};
   background: ${({ urgent }) =>
     urgent ? "rgba(255,77,77,0.15)" : "rgba(0,123,255,0.15)"};
-
   border: 3px solid
     ${({ urgent }) => (urgent ? "#ff4d4d" : "rgba(0,123,255,0.45)")}};
-
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 `;
 
