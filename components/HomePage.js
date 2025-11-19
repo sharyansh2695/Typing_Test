@@ -1,6 +1,5 @@
 import { useState } from "react";
 import styled from "styled-components";
-import { primaryColor } from "../constants/color";
 import TypingCard from "./TypingCard";
 import NavHeader from "./NavHeader";
 
@@ -26,6 +25,7 @@ export default HomePage;
 const PageContainer = styled.div`
   height: 100vh;
   width: 100vw;
+  background: #ffffff;         /* FULL PAGE WHITE (FIXED) */
   display: flex;
   justify-content: center;
   align-items: center;
@@ -35,12 +35,11 @@ const MainCard = styled.div`
   width: 90%;
   max-width: 1000px;
   min-height: 80vh;
-  background: #ffffff;
+  background: #ffffff;         
   border-radius: 1rem;
   box-shadow: 0px 8px 25px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   overflow: hidden;
 `;
 

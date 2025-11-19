@@ -42,7 +42,7 @@ export default function LoginPage() {
         // Replace to avoid back navigation to login
         setTimeout(() => {
           router.replace("/test");
-        }, 7000);
+        }, 1000);
       } else {
         setMessage("❌ Invalid credentials. Please try again.");
       }
@@ -101,7 +101,7 @@ const Container = styled.div`
   align-items: center;
   height: 100vh;
   width: 100vw;
-  background: linear-gradient(135deg, #1e1e2f, #2b2b40);
+  background:background: #ffffff;;
   font-family: "Inter", sans-serif;
   color: #fff;
   overflow: hidden;
@@ -120,15 +120,16 @@ const Card = styled.div`
 `;
 
 const Logo = styled.h1`
-  font-size: 1.6rem;
-  background: linear-gradient(90deg, #ff6b6b, #feca57, #54a0ff);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-bottom: 0.3rem;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #222;                /* professional dark grey */
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.5px;
 `;
 
+
 const SubText = styled.p`
-  color: #d6d6d6;
+  color: #333;           /* darker grey */
   font-size: 0.95rem;
   margin-bottom: 1rem;
 `;
@@ -144,9 +145,13 @@ const Label = styled.label`
   text-align: left;
   width: 100%;
   margin: 6px 0 4px;
-  color: #e6e6e6;
-  font-size: 0.85rem;
+
+  /* UPDATED */
+  color: #222;            /* strong dark grey */
+  font-weight: 500;       /* slightly bolder */
+  font-size: 0.9rem;
 `;
+
 
 const Form = styled.form`
   display: flex;
@@ -158,19 +163,28 @@ const Form = styled.form`
 const Input = styled.input`
   padding: 0.8rem 0.9rem;
   border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.14);
-  outline: none;
-  background: #ffffff; /* white background to ensure visibility */
-  color: #111; /* dark text for contrast */
+
+  /* UPDATED */
+  background: #f3f3f3;     /* light grey */
+  border: 1px solid #ccc;  /* soft grey border */
+  color: #111;
+
   font-size: 1rem;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
+  outline: none;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.08);
+
   ::placeholder {
-    color: #888;
+    color: #666;           /* darker placeholder */
   }
+
   &:focus {
+    background: #e9e9e9;   /* slightly darker focus */
+    border-color: #777;
     box-shadow: 0 0 0 3px rgba(84,160,255,0.12);
   }
 `;
+
+
 
 const Button = styled.button`
   margin-top: 0.6rem;
