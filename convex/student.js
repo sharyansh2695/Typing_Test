@@ -1,34 +1,23 @@
 import { mutation } from "./_generated/server";
-import { v } from "convex/values";
 
-// ✅ Verify student login (Convex backend)
-export const verifyStudent = mutation({
-  args: {
-    name: v.string(),
-    rollNumber: v.string(),
-  },
-  handler: async (ctx, args) => {
-    // Find the student with matching name and roll number
-    const student = await ctx.db
-      .query("students")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("name"), args.name),
-          q.eq(q.field("rollNumber"), args.rollNumber)
-        )
-      )
-      .first();
+export const verifyStudent = mutation(async ({ db }, { name, rollNumber }) => {
+  if (!name || !rollNumber) {
+    return { success: false, message: "Missing name or roll number" };
+  }
 
-    // If student not found, return error
-    if (!student) {
-      return { success: false, message: "Invalid credentials" };
-    }
+  // Match both name + roll number (avoids wrong login)
+  const results = await db
+    .query("students")
+    .filter((q) => q.eq(q.field("rollNumber"), rollNumber))
+    .filter((q) => q.eq(q.field("name"), name))
+    .collect();
 
-    // ✅ Return the Convex student ID so we can store results later
-    return {
-      success: true,
-      message: "Login successful",
-      studentId: student._id,
-    };
-  },
+  const student = results.length ? results[0] : null;
+
+  if (!student) {
+    return { success: false, message: "Invalid login credentials" };
+  }
+
+  // Login success
+  return { success: true, studentId: student.name };
 });
