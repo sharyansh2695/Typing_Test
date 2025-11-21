@@ -2,10 +2,11 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
 
-//check if student has attempted paragraph
+// ✅ STEP 6 — HARD BACKEND ATTEMPT BLOCKING
+// Checks if student has already attempted this paragraph.
 export const hasAttempted = query({
   args: {
-    studentId: v.string(),          // username
+    studentId: v.string(),
     paragraphId: v.id("paragraphs"),
   },
 
@@ -25,10 +26,10 @@ export const hasAttempted = query({
 });
 
 
-// Save Result (Snapshot + Block SAME PARAGRAPH reattempt)
+// ⭐ SAVE RESULT WITH BACKEND ENFORCEMENT
 export const saveResult = mutation({
   args: {
-    studentId: v.string(),          // now username
+    studentId: v.string(),
     paragraphId: v.id("paragraphs"),
     symbols: v.number(),
     seconds: v.number(),
@@ -40,7 +41,8 @@ export const saveResult = mutation({
   handler: async (ctx, args) => {
     const { studentId, paragraphId } = args;
 
-    // Block reattempt only for SAME paragraph
+    // ⭐ STEP 6 (CRITICAL):
+    // HARD BLOCK repeated attempts EVEN IF frontend is bypassed
     const existing = await ctx.db
       .query("results")
       .withIndex("by_student", (q) => q.eq("studentId", studentId))
@@ -48,17 +50,18 @@ export const saveResult = mutation({
       .first();
 
     if (existing) {
-      return { success: false, message: "Already Attempted" };
+      // ❗ SAME LOGIC (BLOCK ATTEMPT), but DO NOT CRASH FRONTEND
+      return { success: false, message: "Attempt blocked: Already attempted." };
     }
 
-    // Snapshot paragraph
+    // Snapshot paragraph for safety & audit logs
     const paragraph = await ctx.db.get(paragraphId);
     const paragraphContent = paragraph?.content ?? "";
     const originalSymbols = paragraphContent.length;
 
-    // Insert result
+    // Insert new test result
     const result = await ctx.db.insert("results", {
-      studentId,                 // now storing username
+      studentId,
       paragraphId,
       symbols: args.symbols,
       seconds: args.seconds,
@@ -75,7 +78,7 @@ export const saveResult = mutation({
 });
 
 
-// Get all Results (Admin)
+// ADMIN: get all results
 export const getAllResults = query({
   handler: async (ctx) => {
     return await ctx.db.query("results").order("desc").collect();

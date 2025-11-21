@@ -83,7 +83,6 @@ export default function Results() {
   );
 }
 
-/* ---------------- STYLES ---------------- */
 
 const ParagraphButton = styled.button`
   background: none;

@@ -67,18 +67,22 @@ const Wrapper = styled.div`
 `;
 
 const PreviewContainer = styled.div`
-  min-height: 120px;
-  max-height: 220px;
+  min-height: 300px;       /* MUCH bigger preview area */
+  max-height: 500px;       /* Allows scrolling if needed */
   overflow-y: auto;
-  padding: 14px;
+  padding: 24px;
   border-radius: 10px;
-  background: linear-gradient(180deg, #d9e9ff 0%, #edf4ff 100%);
-  font-size: 1.04rem;
-  line-height: 1.8rem;
-  color: ${headingColor};
+  background: #ffffff;     /* Clean white background */
+  font-size: 1.4rem;       /* LARGE TEXT */
+  line-height: 2.5rem;     /* Extra line spacing */
+  color: #000000;          /* BLACK TEXT */
   white-space: pre-wrap;
   word-break: break-word;
+
+  width: 100%;             /* Take full width */
+  border: 2px solid #ddd;
 `;
+
 
 const Char = styled.span`
   display: inline-block;
@@ -89,7 +93,7 @@ const Char = styled.span`
   ${(p) =>
     p.$status === "default" &&
     `
-    color: #9aa0a6;
+    color: #000000;
   `}
 
   ${(p) =>

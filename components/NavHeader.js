@@ -1,22 +1,9 @@
-import { useState, useEffect } from "react";
+
 import Image from "next/image";
 import styled from "styled-components";
 import logo from "../public/images/dtulogo.png";
 
-const NavHeader = ({ currentSpeed }) => {
-  const [highestSpeed, setHighestSpeed] = useState(0);
-
-  // Update stored speed only when increasing
-  if (currentSpeed > highestSpeed) {
-    setHighestSpeed(currentSpeed);
-    localStorage.setItem("highestSpeed", currentSpeed);
-  }
-
-  useEffect(() => {
-    const stored = localStorage.getItem("highestSpeed");
-    if (stored) setHighestSpeed(parseInt(stored));
-  }, []);
-
+const NavHeader = () => {
   return (
     <HeaderContainer>
       <LeftContent>
@@ -37,15 +24,15 @@ const HeaderContainer = styled.header`
   align-items: center;
   justify-content: flex-start;
 
-  background: #ffffff;         /* PURE WHITE */
-  color: #000;                 /* BLACK TEXT */
+  background: #ffffff;         
+  color: #000;               
 
   padding: 12px 30px;
   position: sticky;
   top: 0;
   z-index: 100;
 
-  border-bottom: 1px solid #e5e5e5; /* Light professional border */
+  border-bottom: 1px solid #e5e5e5; 
 `;
 
 const LeftContent = styled.div`

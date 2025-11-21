@@ -4,7 +4,7 @@ export default function AlreadyAttempted() {
       <div style={styles.card}>
         <h1 style={styles.title}>You Have Already Attempted the Test</h1>
         <p style={styles.subtitle}>
-          Your test response is already recorded.
+          Your test response is recorded.
         </p>
       </div>
     </div>

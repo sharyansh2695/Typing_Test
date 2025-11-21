@@ -6,19 +6,18 @@ import styled from "styled-components";
 
 export default function LoginPage() {
   const router = useRouter();
+
+  // FIXED: Correct API reference (ensure convex file namespace is `students`)
   const verifyStudent = useMutation(api.student.verifyStudent);
 
   const [name, setName] = useState("");
   const [rollNumber, setRollNumber] = useState("");
   const [message, setMessage] = useState("");
 
-  // If already logged in, go to test directly
-  useEffect(() => {
-    const studentId = localStorage.getItem("studentId");
-    if (studentId) router.replace("/test");
-  }, [router]);
+  // NOTE: Removed automatic redirect on mount to avoid flicker.
+  // User is redirected only after a successful login.
 
-  // Prevent back navigation on login page
+  // Prevent back navigation on login page (keeps existing UX)
   useEffect(() => {
     window.history.pushState(null, "", window.location.href);
     window.onpopstate = () => {
@@ -31,24 +30,27 @@ export default function LoginPage() {
     setMessage("🔍 Checking credentials...");
 
     try {
-      const res = await verifyStudent({ name, rollNumber });
+      const result = await verifyStudent({ name, rollNumber });
 
-      if (res && res.success) {
-        setMessage("✅ Login successful! Redirecting...");
-        localStorage.setItem("studentId", res.studentId);
-        localStorage.setItem("studentName", name);
-        localStorage.setItem("rollNumber", rollNumber);
-
-        // Replace to avoid back navigation to login
-        setTimeout(() => {
-          router.replace("/test");
-        }, 1000);
-      } else {
-        setMessage("❌ Invalid credentials. Please try again.");
+      if (!result.success) {
+        setMessage(result.message || "❌ Invalid credentials.");
+        return;
       }
+
+      // Save session locally (still localStorage for now)
+      localStorage.setItem("studentId", result.studentId);
+      localStorage.setItem("studentName", name);
+      localStorage.setItem("rollNumber", rollNumber);
+
+      setMessage("✅ Login successful! Redirecting...");
+
+      // redirect after short delay (keeps UI)
+      setTimeout(() => {
+        router.replace("/test");
+      }, 600);
     } catch (err) {
       console.error(err);
-      setMessage("⚠️ Server error, please try again later.");
+      setMessage("⚠️ Server error, try again.");
     }
   };
 
@@ -94,6 +96,7 @@ export default function LoginPage() {
   );
 }
 
+/* Styled components — unchanged visually */
 const Container = styled.div`
   display: flex;
   flex-direction: column;
@@ -101,7 +104,7 @@ const Container = styled.div`
   align-items: center;
   height: 100vh;
   width: 100vw;
-  background:background: #ffffff;;
+  background: #ffffff;
   font-family: "Inter", sans-serif;
   color: #fff;
   overflow: hidden;
@@ -122,22 +125,15 @@ const Card = styled.div`
 const Logo = styled.h1`
   font-size: 1.8rem;
   font-weight: 700;
-  color: #222;                /* professional dark grey */
+  color: #222;
   margin-bottom: 0.5rem;
   letter-spacing: 0.5px;
 `;
 
-
 const SubText = styled.p`
-  color: #333;           /* darker grey */
+  color: #333;
   font-size: 0.95rem;
   margin-bottom: 1rem;
-`;
-
-const DebugHint = styled.p`
-  color: #ffd166;
-  font-size: 0.8rem;
-  margin-bottom: 0.6rem;
 `;
 
 const Label = styled.label`
@@ -145,13 +141,10 @@ const Label = styled.label`
   text-align: left;
   width: 100%;
   margin: 6px 0 4px;
-
-  /* UPDATED */
-  color: #222;            /* strong dark grey */
-  font-weight: 500;       /* slightly bolder */
+  color: #222;
+  font-weight: 500;
   font-size: 0.9rem;
 `;
-
 
 const Form = styled.form`
   display: flex;
@@ -163,28 +156,23 @@ const Form = styled.form`
 const Input = styled.input`
   padding: 0.8rem 0.9rem;
   border-radius: 8px;
-
-  /* UPDATED */
-  background: #f3f3f3;     /* light grey */
-  border: 1px solid #ccc;  /* soft grey border */
+  background: #f3f3f3;
+  border: 1px solid #ccc;
   color: #111;
-
   font-size: 1rem;
   outline: none;
   box-shadow: inset 0 1px 3px rgba(0,0,0,0.08);
 
   ::placeholder {
-    color: #666;           /* darker placeholder */
+    color: #666;
   }
 
   &:focus {
-    background: #e9e9e9;   /* slightly darker focus */
+    background: #e9e9e9;
     border-color: #777;
     box-shadow: 0 0 0 3px rgba(84,160,255,0.12);
   }
 `;
-
-
 
 const Button = styled.button`
   margin-top: 0.6rem;

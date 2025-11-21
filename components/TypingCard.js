@@ -1,3 +1,4 @@
+// --- Same imports ---
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import styled from "styled-components";
 import Preview from "./Preview";
@@ -5,7 +6,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { useRouter } from "next/router";
 
-
+// --- Same styled components (UNCHANGED) ---
 const Loader = styled.div`
   text-align: center;
   padding: 1.5rem;
@@ -103,11 +104,10 @@ const StartButton = styled.button`
   border: none;
 `;
 
-// COMPONENT START 
+// --- COMPONENT START ---
 export default function TypingCard() {
   const router = useRouter();
 
-  //states
   const [studentId, setStudentId] = useState(undefined);
   const [text, setText] = useState("");
   const [countDown, setCountDown] = useState(null);
@@ -119,7 +119,6 @@ export default function TypingCard() {
   const [userInputState, setUserInputState] = useState("");
   const [attemptCheckDone, setAttemptCheckDone] = useState(false);
 
-  //Ref
   const paragraphIdRef = useRef(null);
   const userInputRef = useRef("");
   const secRef = useRef(0);
@@ -129,7 +128,7 @@ export default function TypingCard() {
   const submittedRef = useRef(false);
   const textareaRef = useRef(null);
 
-  //Load StudentId
+  // Load studentId safely
   useEffect(() => {
     const id =
       typeof window !== "undefined"
@@ -138,10 +137,9 @@ export default function TypingCard() {
     setStudentId(id || null);
   }, []);
 
-  
-  const paragraph = useQuery(api.paragraphs.getRandomParagraph);
+  // Convex queries
+  const paragraph = useQuery(api.paragraphs.getParagraph);
   const timeSetting = useQuery(api.timeSettings.getTimeSetting);
-
 
   const hasAttempted = useQuery(
     api.results.hasAttempted,
@@ -153,26 +151,16 @@ export default function TypingCard() {
       : "skip"
   );
 
-  //Safe redirect
- useEffect(() => {
-  // mark that the attempt check finished once we get any value
-  if (hasAttempted !== undefined) {
-    setAttemptCheckDone(true);
-  }
+  useEffect(() => {
+    if (hasAttempted !== undefined) {
+      setAttemptCheckDone(true);
+    }
+  }, [hasAttempted]);
 
-  if (attemptCheckDone && hasAttempted === true && !submittedRef.current) {
-    router.replace("/already-attempted");
-  }
-}, [hasAttempted, attemptCheckDone, router]);
-
-
-
-  // Reset when paragraph changes 
+  // Reset on paragraph change
   useEffect(() => {
     if (!paragraph || !timeSetting) return;
-
     const pid = paragraph._id;
-    if (!pid) return;
 
     if (paragraphIdRef.current !== pid) {
       paragraphIdRef.current = pid;
@@ -192,41 +180,34 @@ export default function TypingCard() {
     }
   }, [paragraph, timeSetting]);
 
-  // Cleanup Timer
   useEffect(() => {
     return () =>
       intervalRef.current && clearInterval(intervalRef.current);
   }, []);
 
-  //Save Result 
   const saveResult = useMutation(api.results.saveResult);
 
-  const handleSaveResultToDB = useCallback(
-    async ({ input, seconds }) => {
-      let correctChars = 0;
-      for (let i = 0; i < input.length; i++) {
-        if (input[i] === text[i]) correctChars++;
-      }
+ const handleSaveResultToDB = useCallback(
+  async ({ input, seconds }) => {
+    let correctChars = 0;
+    for (let i = 0; i < input.length; i++) {
+      if (input[i] === text[i]) correctChars++;
+    }
 
-      const secondsTaken =
-        completionTimeRef.current ?? seconds;
+    const secondsTaken = completionTimeRef.current ?? seconds;
+    const totalTyped = input.length + backspaceCountRef.current;
+    const mistakes = backspaceCountRef.current;
 
-      const totalTyped =
-        input.length + backspaceCountRef.current;
-      const mistakes = backspaceCountRef.current;
+    const accuracy =
+      totalTyped === 0
+        ? 0
+        : Math.round(((totalTyped - mistakes) / totalTyped) * 100);
 
-      const accuracy =
-        totalTyped === 0
-          ? 0
-          : Math.round(
-              ((totalTyped - mistakes) / totalTyped) * 100
-            );
+    const wpm = Math.round((correctChars * 60) / (5 * secondsTaken));
 
-      const wpm = Math.round(
-        (correctChars * 60) / (5 * secondsTaken)
-      );
-
-      await saveResult({
+    try {
+      // 🌟 Catch backend attempt-blocking errors gracefully
+      const res = await saveResult({
         studentId,
         paragraphId: paragraphIdRef.current,
         symbols: correctChars,
@@ -235,29 +216,39 @@ export default function TypingCard() {
         wpm,
         text: input,
       });
-    },
-    [saveResult, text, studentId]
-  );
 
-  // Auto Submit 
+      return res; // important!
+    } catch (err) {
+      console.warn("Save result error:", err?.message);
+      return { success: false, message: err?.message };
+    }
+  },
+  [saveResult, text, studentId]
+);
+
+
   const doAutoSubmit = useCallback(async () => {
-    if (submittedRef.current) return;
-    submittedRef.current = true;
+  if (submittedRef.current) return;
+  submittedRef.current = true;
 
-    clearInterval(intervalRef.current);
+  // stop timer
+  clearInterval(intervalRef.current);
 
-    setFinished(true);
-    setTypingEnabled(false);
+  setFinished(true);
+  setTypingEnabled(false);
 
-    await handleSaveResultToDB({
-      input: userInputRef.current,
-      seconds: secRef.current,
-    });
+  // Save result and capture response
+  const res = await handleSaveResultToDB({
+    input: userInputRef.current,
+    seconds: secRef.current,
+  });
 
-    router.replace("/test-submitted");
-  }, [handleSaveResultToDB, router]);
+  // Always redirect to test-submitted page
+  // Don't clear session here — that causes immediate login redirect
+  router.replace("/test-submitted");
+}, [handleSaveResultToDB, router]);
 
-  //Start Timer 
+
   const startTimer = useCallback(() => {
     if (started) return;
 
@@ -268,7 +259,6 @@ export default function TypingCard() {
 
     setStarted(true);
     setTypingEnabled(true);
-    setFinished(false);
     submittedRef.current = false;
 
     clearInterval(intervalRef.current);
@@ -287,33 +277,22 @@ export default function TypingCard() {
     }, 1000);
   }, [started, timeSetting, doAutoSubmit]);
 
-  // Conditional rendering 
-
+  // Conditional safe rendering
   if (studentId === undefined) return <Loader>Loading...</Loader>;
-
-  if (studentId === null) {
-    router.replace("/login");
-    return <Loader>Redirecting...</Loader>;
-  }
+  if (studentId === null) return <Loader>Invalid session. Please login again.</Loader>;
 
   if (!paragraph || !timeSetting)
     return <Loader>Loading test...</Loader>;
 
-  // Check attempt only after fully loaded
   if (!attemptCheckDone || hasAttempted === undefined)
     return <Loader>Checking attempt...</Loader>;
-
-  // Do NOT redirect here!
-  if (hasAttempted === true)
-    return <Loader>Redirecting...</Loader>;
 
   if (countDown === null)
     return <Loader>Preparing test...</Loader>;
 
-  //Typing Logic
+  // Typing logic
   const onUserInputChange = (e) => {
     const value = e.target.value;
-
     if (!typingEnabled || finished) return;
     if (value.length > text.length) return;
 
@@ -347,15 +326,12 @@ export default function TypingCard() {
     setErrorIndex(null);
     setErrorMessage("");
 
-    if (
-      value.length === text.length &&
-      completionTimeRef.current === null
-    ) {
+    if (value.length === text.length && completionTimeRef.current === null) {
       completionTimeRef.current = secRef.current;
     }
   };
 
-  //ui
+  // UI RETURN (unchanged)
   return (
     <OuterWrapper>
       <TypingCardContainer>
@@ -382,9 +358,7 @@ export default function TypingCard() {
             onCut={(e) => e.preventDefault()}
           />
 
-          {errorMessage && (
-            <ErrorMessage>{errorMessage}</ErrorMessage>
-          )}
+          {errorMessage && <ErrorMessage>{errorMessage}</ErrorMessage>}
         </TypingPanel>
 
         {!typingEnabled && !finished && (

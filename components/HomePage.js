@@ -1,19 +1,14 @@
-import { useState } from "react";
 import styled from "styled-components";
 import TypingCard from "./TypingCard";
 import NavHeader from "./NavHeader";
 
 const HomePage = () => {
-  const [currentSpeed, setCurrentSpeed] = useState(0);
-
-  const homepageCallback = (speed) => setCurrentSpeed(speed);
-
   return (
     <PageContainer>
       <MainCard>
-        <NavHeader currentSpeed={currentSpeed} />
+        <NavHeader />
         <Content>
-          <TypingCard homepageCallback={homepageCallback} />
+          <TypingCard />
         </Content>
       </MainCard>
     </PageContainer>
@@ -25,7 +20,7 @@ export default HomePage;
 const PageContainer = styled.div`
   height: 100vh;
   width: 100vw;
-  background: #ffffff;         /* FULL PAGE WHITE (FIXED) */
+  background: #ffffff;        
   display: flex;
   justify-content: center;
   align-items: center;

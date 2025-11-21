@@ -13,19 +13,17 @@ export default defineSchema({
 
   // Paragraphs
   paragraphs: defineTable({
-    content: v.string(),
-    difficulty: v.optional(v.string()),
+    content: v.string()
   }),
 
   // Time settings
   timeSettings: defineTable({
     duration: v.number(),
-    label: v.optional(v.string()),
   }),
 
   // Results table
   results: defineTable({
-    studentId: v.string(),              // roll number (STRING)
+    studentId: v.string(),        
     paragraphId: v.id("paragraphs"),
 
     symbols: v.number(),
@@ -35,8 +33,8 @@ export default defineSchema({
 
     text: v.optional(v.string()),
 
-    paragraphContent: v.string(),       // snapshot stored permanently
-    originalSymbols: v.number(),        // snapshot stored permanently
+    paragraphContent: v.string(),       
+    originalSymbols: v.number(),        
 
     submittedAt: v.string(),            // ISO timestamp
   })

@@ -1,73 +1,54 @@
+// pages/test-submitted.js
+import { useEffect } from "react";
 import styled from "styled-components";
 import { useRouter } from "next/router";
-import { useEffect } from "react";
 
 export default function TestSubmitted() {
   const router = useRouter();
 
   useEffect(() => {
-    const studentId = localStorage.getItem("studentId");
-    if (!studentId) router.replace("/test");
+    // show the page for 1.5s then clear session and go to login
+    const t = setTimeout(() => {
+      try {
+        localStorage.removeItem("studentId");
+        localStorage.removeItem("studentName");
+        localStorage.removeItem("rollNumber");
+      } catch (e) {}
+      router.replace("/login");
+    }, 1500); // adjust delay as you like
+
+    return () => clearTimeout(t);
   }, [router]);
 
   return (
-    <Container>
+    <Wrapper>
       <Card>
-        <Title>Test Submitted Successfully</Title>
-        <Message>Your typing test result has been recorded.</Message>
+        <Title>Test submitted successfully ✅</Title>
+        <Sub>Thank you — your result has been recorded.</Sub>
       </Card>
-    </Container>
+    </Wrapper>
   );
 }
 
-const Container = styled.div`
+const Wrapper = styled.div`
   min-height: 100vh;
-
-  /* ⭐ CLEAN WHITE BACKGROUND */
-  background: #ffffff;
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#fff;
 `;
-
 const Card = styled.div`
-  background: #ffffff;
-  border: 1px solid #ddd;
-  padding: 2rem 3rem;
-  border-radius: 1rem;
-  text-align: center;
-  max-width: 420px;
-  width: 90%;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  background:#f8fbff;
+  padding:2rem;
+  border-radius:12px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.08);
+  text-align:center;
 `;
-
-const Title = styled.h2`
-  color: #222;
-  margin-bottom: 1rem;
-  font-size: 1.6rem;
-  font-weight: 700;
+const Title = styled.h1`
+  margin:0 0 .5rem 0;
+  font-size:1.6rem;
 `;
-
-const Message = styled.p`
-  color: #555;
-  font-size: 1rem;
-  margin-bottom: 2rem;
-`;
-
-const Button = styled.button`
-  background: #007bff;
-  border: none;
-  color: white;
-  padding: 0.75rem 1.5rem;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 600;
-  transition: 0.2s;
-
-  &:hover {
-    background: #005fcc;
-  }
+const Sub = styled.p`
+  margin:0;
+  color:#555;
 `;

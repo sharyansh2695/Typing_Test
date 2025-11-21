@@ -1,23 +1,60 @@
-import { mutation } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
+import { v } from "convex/values";
 
-export const verifyStudent = mutation(async ({ db }, { name, rollNumber }) => {
-  if (!name || !rollNumber) {
-    return { success: false, message: "Missing name or roll number" };
-  }
+/**
+ * ✔️ Check whether a student with given rollNumber exists.
+ * Called during session validation (in /test page)
+ */
+export const checkExists = query({
+  args: { studentId: v.string() },
+  handler: async (ctx, { studentId }) => {
+    const student = await ctx.db
+      .query("students")
+      .withIndex("by_rollNumber", q => q.eq("rollNumber", studentId))
+      .first();
 
-  // Match both name + roll number (avoids wrong login)
-  const results = await db
-    .query("students")
-    .filter((q) => q.eq(q.field("rollNumber"), rollNumber))
-    .filter((q) => q.eq(q.field("name"), name))
-    .collect();
+    return student !== null;
+  },
+});
 
-  const student = results.length ? results[0] : null;
+/**
+ * ✔️ Verify student by both name and rollNumber.
+ * Called during login.
+ *
+ * Returns:
+ *   { success: true, studentId }
+ *   { success: false, message }
+ */
+export const verifyStudent = mutation({
+  args: {
+    name: v.string(),
+    rollNumber: v.string(),
+  },
 
-  if (!student) {
-    return { success: false, message: "Invalid login credentials" };
-  }
+  handler: async (ctx, { name, rollNumber }) => {
+    if (!name || !rollNumber) {
+      return { success: false, message: "Missing name or roll number" };
+    }
 
-  // Login success
-  return { success: true, studentId: student.name };
+    // Fast lookup using index
+    const student = await ctx.db
+      .query("students")
+      .withIndex("by_rollNumber", q => q.eq("rollNumber", rollNumber))
+      .first();
+
+    if (!student) {
+      return { success: false, message: "Invalid login credentials" };
+    }
+
+    // Strict match on name (can modify to case-insensitive if needed)
+    if (student.name !== name) {
+      return { success: false, message: "Invalid login credentials" };
+    }
+
+    // SUCCESS → return rollNumber as studentId
+    return {
+      success: true,
+      studentId: student.rollNumber,
+    };
+  },
 });

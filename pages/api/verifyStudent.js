@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   const { name, rollNumber } = req.body;
 
   try {
-    const result = await convex.query(api.students.verifyStudent, { name, rollNumber });
+    const result = await convex.query(api.student.verifyStudent, { name, rollNumber });
     res.status(200).json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
