@@ -12,7 +12,6 @@ export default function TestSubmitted() {
       try {
         localStorage.removeItem("studentId");
         localStorage.removeItem("studentName");
-        localStorage.removeItem("rollNumber");
       } catch (e) {}
       router.replace("/login");
     }, 1500); // adjust delay as you like

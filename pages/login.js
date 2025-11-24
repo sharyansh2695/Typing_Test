@@ -7,17 +7,14 @@ import styled from "styled-components";
 export default function LoginPage() {
   const router = useRouter();
 
-  // FIXED: Correct API reference (ensure convex file namespace is `students`)
+  // Correct Convex mutation
   const verifyStudent = useMutation(api.student.verifyStudent);
 
-  const [name, setName] = useState("");
-  const [rollNumber, setRollNumber] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
-  // NOTE: Removed automatic redirect on mount to avoid flicker.
-  // User is redirected only after a successful login.
-
-  // Prevent back navigation on login page (keeps existing UX)
+  // Prevent back navigation on login page
   useEffect(() => {
     window.history.pushState(null, "", window.location.href);
     window.onpopstate = () => {
@@ -30,21 +27,20 @@ export default function LoginPage() {
     setMessage("🔍 Checking credentials...");
 
     try {
-      const result = await verifyStudent({ name, rollNumber });
+      // IMPORTANT: send username + password (new backend structure)
+      const result = await verifyStudent({ username, password });
 
       if (!result.success) {
         setMessage(result.message || "❌ Invalid credentials.");
         return;
       }
 
-      // Save session locally (still localStorage for now)
+      // Save session
       localStorage.setItem("studentId", result.studentId);
-      localStorage.setItem("studentName", name);
-      localStorage.setItem("rollNumber", rollNumber);
+      localStorage.setItem("studentName", username);
 
       setMessage("✅ Login successful! Redirecting...");
 
-      // redirect after short delay (keeps UI)
       setTimeout(() => {
         router.replace("/test");
       }, 600);
@@ -61,29 +57,23 @@ export default function LoginPage() {
         <SubText>Login to begin your test</SubText>
 
         <Form onSubmit={handleSubmit} autoComplete="off">
-          <Label htmlFor="name">Username</Label>
+          <Label>Username (Application Number)</Label>
           <Input
-            id="name"
-            name="name"
             type="text"
-            placeholder="Enter your Username"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            placeholder="Enter your Application Number"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
             required
             autoFocus
-            autoComplete="off"
           />
 
-          <Label htmlFor="roll">Password</Label>
+          <Label>Password</Label>
           <Input
-            id="roll"
-            name="roll"
-            type="text"
-            placeholder="Enter password"
-            value={rollNumber}
-            onChange={(e) => setRollNumber(e.target.value)}
+            type="password"
+            placeholder="Enter Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             required
-            autoComplete="off"
           />
 
           <Button type="submit">Login</Button>
@@ -91,12 +81,13 @@ export default function LoginPage() {
 
         <Message isSuccess={message.includes("✅")}>{message}</Message>
       </Card>
+
       <Footer>Developed by CC • DTU</Footer>
     </Container>
   );
 }
 
-/* Styled components — unchanged visually */
+/* Styled components remain unchanged below */
 const Container = styled.div`
   display: flex;
   flex-direction: column;

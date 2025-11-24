@@ -1,35 +1,30 @@
+// convex/results.js
+
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
-
-// ✅ STEP 6 — HARD BACKEND ATTEMPT BLOCKING
-// Checks if student has already attempted this paragraph.
+// check if student alreasy attempted using applicationNumber
 export const hasAttempted = query({
   args: {
-    studentId: v.string(),
+    studentId: v.string(), // applicationNumber
     paragraphId: v.id("paragraphs"),
   },
 
-  handler: async (ctx, args) => {
-    const { studentId, paragraphId } = args;
-
+  handler: async (ctx, { studentId, paragraphId }) => {
     const existing = await ctx.db
       .query("results")
       .withIndex("by_student", (q) => q.eq("studentId", studentId))
       .filter((q) => q.eq(q.field("paragraphId"), paragraphId))
       .first();
 
-    console.log("CHECK ATTEMPT:", { studentId, paragraphId, existing });
-
-    return existing ? true : false;
+    return !!existing;
   },
 });
 
-
-// ⭐ SAVE RESULT WITH BACKEND ENFORCEMENT
+// save result
 export const saveResult = mutation({
   args: {
-    studentId: v.string(),
+    studentId: v.string(), // applicationNumber
     paragraphId: v.id("paragraphs"),
     symbols: v.number(),
     seconds: v.number(),
@@ -41,8 +36,7 @@ export const saveResult = mutation({
   handler: async (ctx, args) => {
     const { studentId, paragraphId } = args;
 
-    // ⭐ STEP 6 (CRITICAL):
-    // HARD BLOCK repeated attempts EVEN IF frontend is bypassed
+    // BLOCK REPEAT ATTEMPT
     const existing = await ctx.db
       .query("results")
       .withIndex("by_student", (q) => q.eq("studentId", studentId))
@@ -50,16 +44,13 @@ export const saveResult = mutation({
       .first();
 
     if (existing) {
-      // ❗ SAME LOGIC (BLOCK ATTEMPT), but DO NOT CRASH FRONTEND
       return { success: false, message: "Attempt blocked: Already attempted." };
     }
 
-    // Snapshot paragraph for safety & audit logs
     const paragraph = await ctx.db.get(paragraphId);
     const paragraphContent = paragraph?.content ?? "";
     const originalSymbols = paragraphContent.length;
 
-    // Insert new test result
     const result = await ctx.db.insert("results", {
       studentId,
       paragraphId,
@@ -77,10 +68,13 @@ export const saveResult = mutation({
   },
 });
 
-
-// ADMIN: get all results
+// get all results -admin
 export const getAllResults = query({
   handler: async (ctx) => {
-    return await ctx.db.query("results").order("desc").collect();
+    return await ctx.db
+      .query("results")
+      .withIndex("by_submittedAt")
+      .order("desc")
+      .collect();
   },
 });
