@@ -2,6 +2,8 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+  
+  // students table
   students: defineTable({
     name: v.string(),
     rollNumber: v.string(),
@@ -9,25 +11,32 @@ export default defineSchema({
     .index("by_rollNumber", ["rollNumber"])
     .index("by_name", ["name"]),
 
-  // 🆕 New table for typing test content
+  //paragraph-typing content
   paragraphs: defineTable({
-    content: v.string(), // the paragraph text
-    difficulty: v.optional(v.string()), // optional (easy, medium, hard)
+    content: v.string(),                 // typing passage
+    difficulty: v.optional(v.string()),  // easy | medium | hard 
   }),
-  timeSettings: defineTable({
-    duration: v.number(), // in seconds (e.g., 60, 90, etc.)
-    label: v.optional(v.string()), // optional tag like "easy", "medium", "hard"
-  }),
-  results: defineTable({
-  studentId: v.id("students"),
-  paragraphId: v.id("paragraphs"),
-  symbols: v.number(),
-  seconds: v.number(),
-  wpm: v.number(),
-  accuracy: v.optional(v.number()),
-  createdAt: v.string(),
-})
-  .index("by_student", ["studentId"])
-  .index("by_paragraph", ["paragraphId"]),
 
+  //timeSettings
+  timeSettings: defineTable({
+    duration: v.number(),                // e.g. 60 seconds
+    label: v.optional(v.string()),       
+  }),
+
+ //Results Table
+  results: defineTable({
+    studentId: v.id("students"),         // FK → students table
+    paragraphId: v.id("paragraphs"),     // FK → paragraphs table
+
+    symbols: v.number(),                 // typed characters
+    seconds: v.number(),                 // time used
+    wpm: v.number(),                     // words per minute
+    accuracy: v.number(),                // accuracy %
+
+    text: v.optional(v.string()),        // full typed text (optional)
+
+    createdAt: v.string(),               // ISO timestamp
+  })
+    .index("by_student", ["studentId"])
+    .index("by_paragraph", ["paragraphId"]),
 });

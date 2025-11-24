@@ -1,34 +1,34 @@
+// convex/student.js
 import { mutation } from "./_generated/server";
-import { v } from "convex/values";
 
-// ✅ Verify student login (Convex backend)
-export const verifyStudent = mutation({
-  args: {
-    name: v.string(),
-    rollNumber: v.string(),
-  },
-  handler: async (ctx, args) => {
-    // Find the student with matching name and roll number
-    const student = await ctx.db
-      .query("students")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("name"), args.name),
-          q.eq(q.field("rollNumber"), args.rollNumber)
-        )
-      )
-      .first();
+/**
+ * verifyStudent mutation
+ * Input: { name, rollNumber }
+ * Output: { success: boolean, studentId?: string, message?: string }
+ *
+ * Adjust DB logic to match your schema (students collection/table).
+ */
+export const verifyStudent = mutation(async ({ db }, { name, rollNumber }) => {
+  if (!name || !rollNumber) {
+    return { success: false, message: "Missing name or roll number" };
+  }
 
-    // If student not found, return error
-    if (!student) {
-      return { success: false, message: "Invalid credentials" };
-    }
+  // Example: look up student by rollNumber (adjust field name to your schema)
+  const results = await db
+    .query("students")
+    .filter((q) => q.eq(q.field("rollNumber"), rollNumber))
+    .collect();
 
-    // ✅ Return the Convex student ID so we can store results later
-    return {
-      success: true,
-      message: "Login successful",
-      studentId: student._id,
-    };
-  },
+  const student = results && results.length ? results[0] : null;
+
+  if (!student) {
+    return { success: false, message: "Student not found" };
+  }
+
+  // Optionally verify name matches
+  if (student.name && student.name.toLowerCase() !== name.toLowerCase()) {
+    return { success: false, message: "Name does not match record" };
+  }
+
+  return { success: true, studentId: student._id };
 });
