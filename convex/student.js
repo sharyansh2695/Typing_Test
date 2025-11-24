@@ -1,34 +1,60 @@
-import { mutation } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
-// ✅ Verify student login (Convex backend)
+/**
+ * ✔️ Check whether a student with given rollNumber exists.
+ * Called during session validation (in /test page)
+ */
+export const checkExists = query({
+  args: { studentId: v.string() },
+  handler: async (ctx, { studentId }) => {
+    const student = await ctx.db
+      .query("students")
+      .withIndex("by_rollNumber", q => q.eq("rollNumber", studentId))
+      .first();
+
+    return student !== null;
+  },
+});
+
+/**
+ * ✔️ Verify student by both name and rollNumber.
+ * Called during login.
+ *
+ * Returns:
+ *   { success: true, studentId }
+ *   { success: false, message }
+ */
 export const verifyStudent = mutation({
   args: {
     name: v.string(),
     rollNumber: v.string(),
   },
-  handler: async (ctx, args) => {
-    // Find the student with matching name and roll number
-    const student = await ctx.db
-      .query("students")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("name"), args.name),
-          q.eq(q.field("rollNumber"), args.rollNumber)
-        )
-      )
-      .first();
 
-    // If student not found, return error
-    if (!student) {
-      return { success: false, message: "Invalid credentials" };
+  handler: async (ctx, { name, rollNumber }) => {
+    if (!name || !rollNumber) {
+      return { success: false, message: "Missing name or roll number" };
     }
 
-    // ✅ Return the Convex student ID so we can store results later
+    // Fast lookup using index
+    const student = await ctx.db
+      .query("students")
+      .withIndex("by_rollNumber", q => q.eq("rollNumber", rollNumber))
+      .first();
+
+    if (!student) {
+      return { success: false, message: "Invalid login credentials" };
+    }
+
+    // Strict match on name (can modify to case-insensitive if needed)
+    if (student.name !== name) {
+      return { success: false, message: "Invalid login credentials" };
+    }
+
+    // SUCCESS → return rollNumber as studentId
     return {
       success: true,
-      message: "Login successful",
-      studentId: student._id,
+      studentId: student.rollNumber,
     };
   },
 });

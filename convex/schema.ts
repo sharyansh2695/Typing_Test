@@ -2,6 +2,8 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+
+  // Students table
   students: defineTable({
     name: v.string(),
     rollNumber: v.string(),
@@ -9,25 +11,33 @@ export default defineSchema({
     .index("by_rollNumber", ["rollNumber"])
     .index("by_name", ["name"]),
 
-  // 🆕 New table for typing test content
+  // Paragraphs
   paragraphs: defineTable({
-    content: v.string(), // the paragraph text
-    difficulty: v.optional(v.string()), // optional (easy, medium, hard)
+    content: v.string()
   }),
-  timeSettings: defineTable({
-    duration: v.number(), // in seconds (e.g., 60, 90, etc.)
-    label: v.optional(v.string()), // optional tag like "easy", "medium", "hard"
-  }),
-  results: defineTable({
-  studentId: v.id("students"),
-  paragraphId: v.id("paragraphs"),
-  symbols: v.number(),
-  seconds: v.number(),
-  wpm: v.number(),
-  accuracy: v.optional(v.number()),
-  createdAt: v.string(),
-})
-  .index("by_student", ["studentId"])
-  .index("by_paragraph", ["paragraphId"]),
 
+  // Time settings
+  timeSettings: defineTable({
+    duration: v.number(),
+  }),
+
+  // Results table
+  results: defineTable({
+    studentId: v.string(),        
+    paragraphId: v.id("paragraphs"),
+
+    symbols: v.number(),
+    seconds: v.number(),
+    wpm: v.number(),
+    accuracy: v.number(),
+
+    text: v.optional(v.string()),
+
+    paragraphContent: v.string(),       
+    originalSymbols: v.number(),        
+
+    submittedAt: v.string(),            // ISO timestamp
+  })
+    .index("by_student", ["studentId"])
+    .index("by_paragraph", ["paragraphId"]),
 });

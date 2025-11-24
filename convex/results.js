@@ -1,56 +1,86 @@
-import { mutation, query } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
-// ✅ Save typing test result
-export const saveResult = mutation({
+
+// ✅ STEP 6 — HARD BACKEND ATTEMPT BLOCKING
+// Checks if student has already attempted this paragraph.
+export const hasAttempted = query({
   args: {
-    studentId: v.id("students"),
+    studentId: v.string(),
     paragraphId: v.id("paragraphs"),
-    symbols: v.number(),
-    seconds: v.number(),
-    accuracy: v.optional(v.number()),
-    wpm: v.optional(v.number()),
   },
+
   handler: async (ctx, args) => {
-    const { studentId, paragraphId, symbols, seconds, accuracy, wpm } = args;
+    const { studentId, paragraphId } = args;
 
-    // 🧮 Avoid invalid inputs
-    if (!studentId || !paragraphId || seconds <= 0) {
-      throw new Error("Invalid data provided");
-    }
+    const existing = await ctx.db
+      .query("results")
+      .withIndex("by_student", (q) => q.eq("studentId", studentId))
+      .filter((q) => q.eq(q.field("paragraphId"), paragraphId))
+      .first();
 
-    // ✅ Compute WPM correctly
-    const calculatedWpm = wpm ?? Math.round((symbols * 60) / (5 * seconds));
+    console.log("CHECK ATTEMPT:", { studentId, paragraphId, existing });
 
-    // 💾 Insert into results table
-    await ctx.db.insert("results", {
-      studentId,
-      paragraphId,
-      symbols,
-      seconds,
-      accuracy: accuracy ?? null,
-      wpm: calculatedWpm,
-      createdAt: new Date().toISOString(),
-    });
-
-    console.log("✅ Result stored for student:", studentId);
-
-    return { success: true, wpm: calculatedWpm };
+    return existing ? true : false;
   },
 });
 
-// 🧾 Fetch highest WPM of a student
-export const getHighestSpeed = query({
-  args: { studentId: v.id("students") },
-  handler: async (ctx, { studentId }) => {
-    const results = await ctx.db
+
+// ⭐ SAVE RESULT WITH BACKEND ENFORCEMENT
+export const saveResult = mutation({
+  args: {
+    studentId: v.string(),
+    paragraphId: v.id("paragraphs"),
+    symbols: v.number(),
+    seconds: v.number(),
+    accuracy: v.number(),
+    wpm: v.number(),
+    text: v.optional(v.string()),
+  },
+
+  handler: async (ctx, args) => {
+    const { studentId, paragraphId } = args;
+
+    // ⭐ STEP 6 (CRITICAL):
+    // HARD BLOCK repeated attempts EVEN IF frontend is bypassed
+    const existing = await ctx.db
       .query("results")
-      .filter((q) => q.eq(q.field("studentId"), studentId))
-      .collect();
+      .withIndex("by_student", (q) => q.eq("studentId", studentId))
+      .filter((q) => q.eq(q.field("paragraphId"), paragraphId))
+      .first();
 
-    if (results.length === 0) return { highestWpm: 0 };
+    if (existing) {
+      // ❗ SAME LOGIC (BLOCK ATTEMPT), but DO NOT CRASH FRONTEND
+      return { success: false, message: "Attempt blocked: Already attempted." };
+    }
 
-    const highestWpm = Math.max(...results.map((r) => r.wpm));
-    return { highestWpm };
+    // Snapshot paragraph for safety & audit logs
+    const paragraph = await ctx.db.get(paragraphId);
+    const paragraphContent = paragraph?.content ?? "";
+    const originalSymbols = paragraphContent.length;
+
+    // Insert new test result
+    const result = await ctx.db.insert("results", {
+      studentId,
+      paragraphId,
+      symbols: args.symbols,
+      seconds: args.seconds,
+      accuracy: args.accuracy,
+      wpm: args.wpm,
+      text: args.text ?? "",
+      paragraphContent,
+      originalSymbols,
+      submittedAt: new Date().toISOString(),
+    });
+
+    return { success: true, result };
+  },
+});
+
+
+// ADMIN: get all results
+export const getAllResults = query({
+  handler: async (ctx) => {
+    return await ctx.db.query("results").order("desc").collect();
   },
 });

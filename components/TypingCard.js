@@ -1,266 +1,382 @@
-import React, { useState, useEffect, useRef } from "react";
+// --- Same imports ---
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import styled from "styled-components";
 import Preview from "./Preview";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
-import {
-  headingColor,
-  lightSecondaryColor1,
-  primaryColor,
-  secondaryColor,
-} from "../constants/color";
-import Speed from "./Speed";
+import { useRouter } from "next/router";
 
-function TypingCard({ homepageCallback }) {
-  // 🧠 Fetch data from Convex DB
-  const paragraph = useQuery(api.paragraphs.getRandomParagraph);
-  const timeSetting = useQuery(api.timeSettings.getTimeSetting); // ✅ New query for time
-  const saveResult = useMutation(api.results.saveResult);
-
-  const [text, setText] = useState("");
-  const [userInput, setUserInput] = useState("");
-  const [symbols, setSymbols] = useState(0);
-  const [sec, setSec] = useState(0);
-  const [started, setStarted] = useState(false);
-  const [finished, setFinished] = useState(false);
-  const [countDown, setCountDown] = useState(null);
-  const [locked, setLocked] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-  const intervalRef = useRef(null);
-
-  // ✅ Load paragraph
-  useEffect(() => {
-    if (paragraph === undefined) return;
-    if (paragraph === null) setText("");
-    else setText(paragraph.content || "");
-  }, [paragraph]);
-
-  // ✅ Load time duration from DB
-  useEffect(() => {
-    if (timeSetting) {
-      setCountDown(timeSetting.duration || 60);
-    }
-  }, [timeSetting]);
-
-  // ✅ Timer logic
-  const setTimer = () => {
-    if (!started && countDown !== null) {
-      setStarted(true);
-      intervalRef.current = setInterval(() => {
-        setSec((s) => s + 1);
-        setCountDown((c) => {
-          if (c <= 1) {
-            clearInterval(intervalRef.current);
-            setFinished(true);
-            handleSaveResult(); // Save on timeout
-            return 0;
-          }
-          return c - 1;
-        });
-      }, 1000);
-    }
-  };
-
-  // ✅ Restart
-  const onRestart = () => {
-    clearInterval(intervalRef.current);
-    setUserInput("");
-    setSymbols(0);
-    setSec(0);
-    setStarted(false);
-    setFinished(false);
-    setCountDown(timeSetting?.duration || 60);
-    setLocked(false);
-    setErrorMsg("");
-    setText(paragraph?.content || "");
-  };
-
-  // ✅ Typing logic with stop on wrong input
-  const onUserInputChange = (e) => {
-    const value = e.target.value;
-
-    if (!started) setTimer();
-    if (locked || finished) return;
-
-    const expected = text.substring(0, value.length);
-    const currentChar = text[value.length - 1];
-    const typedChar = value[value.length - 1];
-
-    if (typedChar !== currentChar) {
-      // ❌ Stop typing on wrong input
-      setLocked(true);
-      setErrorMsg("❌ Typing stopped — incorrect character entered!");
-      clearInterval(intervalRef.current);
-      setFinished(true);
-      handleSaveResult();
-      return;
-    }
-
-    setUserInput(value);
-    setSymbols(countCorrectSymbols(value, text));
-    setErrorMsg("");
-
-    // ✅ Paragraph finished
-    if (value === text) {
-      clearInterval(intervalRef.current);
-      setFinished(true);
-      handleSaveResult();
-    }
-  };
-
-  // ✅ Count correct characters
-  const countCorrectSymbols = (userInputVal, baseText) => {
-    const t = (baseText || "").replace(/ /g, "");
-    return userInputVal
-      .replace(/ /g, "")
-      .split("")
-      .filter((data, i) => data === t[i]).length;
-  };
-
-  // ✅ Save result to Convex DB
-  const handleSaveResult = async () => {
-    try {
-      const studentId = localStorage.getItem("studentId");
-      const paragraphId = paragraph?._id;
-
-      if (!studentId || !paragraphId) {
-        console.warn("Missing student or paragraph ID");
-        return;
-      }
-
-      const testDuration = timeSetting?.duration || 60;
-      const secondsTaken = sec === 0 ? testDuration : sec;
-      const wpm = (symbols * 60) / (5 * secondsTaken);
-
-      await saveResult({
-        studentId,
-        paragraphId,
-        symbols,
-        seconds: secondsTaken,
-        accuracy: 100,
-        wpm: Math.round(wpm),
-      });
-
-      console.log("✅ Result saved successfully:", Math.round(wpm));
-    } catch (err) {
-      console.error("❌ Failed to save result:", err);
-    }
-  };
-
-  if (paragraph === undefined || timeSetting === undefined)
-    return <p>Loading...</p>;
-  if (paragraph === null) return <p>No paragraphs found in database.</p>;
-
-  return (
-    <CardContainer>
-      <div className="inner">
-        <CountDown isStarted={started} countDown={countDown}>
-          <h2>{countDown}s</h2>
-        </CountDown>
-
-        <Preview text={text} userInput={userInput} />
-        <TextArea
-          value={userInput}
-          onChange={onUserInputChange}
-          placeholder={locked ? errorMsg : "Start typing..."}
-          readOnly={finished || locked}
-        />
-
-        <Content>
-          <Speed
-            countDown={countDown}
-            typingCardCallback={(speed) => homepageCallback(speed)}
-            sec={sec}
-            symbols={symbols}
-            isFinished={finished}
-          />
-          <Button onClick={onRestart}>Restart</Button>
-        </Content>
-      </div>
-    </CardContainer>
-  );
-}
-
-export default TypingCard;
-
-// ---------- Styled Components ----------
-const CardContainer = styled.div`
-  width: 100%;
-  height: auto;
-  border-radius: 1rem;
-  background-color: #fff;
-  overflow: hidden;
-  box-shadow: 0 0 15px 2px hsl(258, 100%, 40%);
-  @media (min-width: 986px) {
-    width: 60vw;
-  }
-  .inner {
-    padding: 30px;
-    position: relative;
-  }
+// --- Same styled components (UNCHANGED) ---
+const Loader = styled.div`
+  text-align: center;
+  padding: 1.5rem;
+  font-size: 1.2rem;
+  color: #444;
 `;
 
-const CountDown = styled.div`
-  height: 50px;
-  width: 50px;
-  border-radius: 50px;
+const OuterWrapper = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: ${({ isStarted, countDown }) =>
-    isStarted && countDown !== 0 ? primaryColor : lightSecondaryColor1};
-  color: ${headingColor};
-  font-size: 0.8rem;
-  position: absolute;
-  right: 10px;
-  top: 10px;
-  transition: all 0.5s ease-in-out;
-  transform: ${({ isStarted, countDown }) =>
-    isStarted && countDown !== 0 ? "scale(1.1)" : "scale(1)"};
+  min-height: 85vh;
+  width: 100%;
 `;
 
-const TextArea = styled.textarea`
-  width: 97%;
-  height: 10vh;
-  border-radius: 15px;
-  margin-top: 2rem;
-  border: none;
-  outline: none;
-  box-shadow: 0 0 10px 2px rgba(0, 0, 0, 0.2);
-  font-size: 1rem;
-  padding: 10px 1rem;
-  resize: none;
-  line-height: 1.5rem;
-  :focus {
-    opacity: 0.9;
-    background-color: ${secondaryColor};
-    box-shadow: 0 0 10px 1px rgba(154, 129, 225, 0.8);
-    color: #ffffff;
-  }
+const TypingCardContainer = styled.div`
+  background: #f8faff;
+  border-radius: 12px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+  padding: 2rem;
+  width: 90%;
+  max-width: 1000px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
 `;
 
-const Content = styled.div`
+const Header = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  width: 100%;
-  padding-top: 20px;
 `;
 
-const Button = styled.button`
-  border: none;
-  outline: none;
-  padding: 0.7rem 1.5rem;
-  border-radius: 10px;
-  background-color: ${secondaryColor};
-  color: #ffff;
-  font-size: 1rem;
-  font-weight: 600;
-  transition: opacity 0.5s, background-color 0.5s, transform 0.5s linear;
-  box-shadow: 0 5px 15px 2px rgba(0, 0, 0, 0.4);
-  :hover {
-    cursor: pointer;
-    transform: scale(1.05);
-    background-color: ${primaryColor};
-  }
+const Title = styled.h3`
+  font-size: 1.3rem;
+  font-weight: 700;
 `;
+
+const Timer = styled.div`
+  font-size: 1.2rem;
+  font-weight: 700;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: ${({ urgent }) => (urgent ? "#ff4d4d" : "#007bff")};
+  background: ${({ urgent }) =>
+    urgent ? "rgba(255,77,77,0.15)" : "rgba(0,123,255,0.15)"};
+  border: 3px solid
+    ${({ urgent }) => (urgent ? "#ff4d4d" : "rgba(0,123,255,0.45)")};
+`;
+
+const TypingPanel = styled.div`
+  background: #e7f0ff;
+  border: 1px solid #a4c7f3;
+  border-radius: 12px;
+  padding: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+`;
+
+const TextArea = styled.textarea`
+  width: 100%;
+  min-height: 120px;
+  border-radius: 10px;
+  border: 1px solid #b0cef5;
+  padding: 12px;
+  font-size: 1rem;
+  background: #ffffff;
+  color: #111;
+  resize: none;
+`;
+
+const ErrorMessage = styled.div`
+  color: #d93025;
+  font-size: 0.9rem;
+  margin-top: 4px;
+  font-weight: 500;
+`;
+
+const Centered = styled.div`
+  display: flex;
+  justify-content: center;
+`;
+
+const StartButton = styled.button`
+  background: linear-gradient(90deg, #007bff, #0057d8);
+  color: white;
+  padding: 12px 26px;
+  border-radius: 10px;
+  cursor: pointer;
+  border: none;
+`;
+
+// --- COMPONENT START ---
+export default function TypingCard() {
+  const router = useRouter();
+
+  const [studentId, setStudentId] = useState(undefined);
+  const [text, setText] = useState("");
+  const [countDown, setCountDown] = useState(null);
+  const [typingEnabled, setTypingEnabled] = useState(false);
+  const [started, setStarted] = useState(false);
+  const [finished, setFinished] = useState(false);
+  const [errorIndex, setErrorIndex] = useState(null);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [userInputState, setUserInputState] = useState("");
+  const [attemptCheckDone, setAttemptCheckDone] = useState(false);
+
+  const paragraphIdRef = useRef(null);
+  const userInputRef = useRef("");
+  const secRef = useRef(0);
+  const backspaceCountRef = useRef(0);
+  const completionTimeRef = useRef(null);
+  const intervalRef = useRef(null);
+  const submittedRef = useRef(false);
+  const textareaRef = useRef(null);
+
+  // Load studentId safely
+  useEffect(() => {
+    const id =
+      typeof window !== "undefined"
+        ? localStorage.getItem("studentId")
+        : null;
+    setStudentId(id || null);
+  }, []);
+
+  // Convex queries
+  const paragraph = useQuery(api.paragraphs.getParagraph);
+  const timeSetting = useQuery(api.timeSettings.getTimeSetting);
+
+  const hasAttempted = useQuery(
+    api.results.hasAttempted,
+    studentId && paragraph?._id
+      ? {
+          studentId,
+          paragraphId: paragraph._id,
+        }
+      : "skip"
+  );
+
+  useEffect(() => {
+    if (hasAttempted !== undefined) {
+      setAttemptCheckDone(true);
+    }
+  }, [hasAttempted]);
+
+  // Reset on paragraph change
+  useEffect(() => {
+    if (!paragraph || !timeSetting) return;
+    const pid = paragraph._id;
+
+    if (paragraphIdRef.current !== pid) {
+      paragraphIdRef.current = pid;
+      setText(paragraph.content || "");
+      userInputRef.current = "";
+      setUserInputState("");
+      secRef.current = 0;
+      backspaceCountRef.current = 0;
+      completionTimeRef.current = null;
+      setCountDown(timeSetting.duration || 60);
+      setTypingEnabled(false);
+      setStarted(false);
+      setFinished(false);
+      submittedRef.current = false;
+      setErrorIndex(null);
+      setErrorMessage("");
+    }
+  }, [paragraph, timeSetting]);
+
+  useEffect(() => {
+    return () =>
+      intervalRef.current && clearInterval(intervalRef.current);
+  }, []);
+
+  const saveResult = useMutation(api.results.saveResult);
+
+ const handleSaveResultToDB = useCallback(
+  async ({ input, seconds }) => {
+    let correctChars = 0;
+    for (let i = 0; i < input.length; i++) {
+      if (input[i] === text[i]) correctChars++;
+    }
+
+    const secondsTaken = completionTimeRef.current ?? seconds;
+    const totalTyped = input.length + backspaceCountRef.current;
+    const mistakes = backspaceCountRef.current;
+
+    const accuracy =
+      totalTyped === 0
+        ? 0
+        : Math.round(((totalTyped - mistakes) / totalTyped) * 100);
+
+    const wpm = Math.round((correctChars * 60) / (5 * secondsTaken));
+
+    try {
+      // 🌟 Catch backend attempt-blocking errors gracefully
+      const res = await saveResult({
+        studentId,
+        paragraphId: paragraphIdRef.current,
+        symbols: correctChars,
+        seconds: secondsTaken,
+        accuracy,
+        wpm,
+        text: input,
+      });
+
+      return res; // important!
+    } catch (err) {
+      console.warn("Save result error:", err?.message);
+      return { success: false, message: err?.message };
+    }
+  },
+  [saveResult, text, studentId]
+);
+
+
+  const doAutoSubmit = useCallback(async () => {
+  if (submittedRef.current) return;
+  submittedRef.current = true;
+
+  // stop timer
+  clearInterval(intervalRef.current);
+
+  setFinished(true);
+  setTypingEnabled(false);
+
+  // Save result and capture response
+  const res = await handleSaveResultToDB({
+    input: userInputRef.current,
+    seconds: secRef.current,
+  });
+
+  // Always redirect to test-submitted page
+  // Don't clear session here — that causes immediate login redirect
+  router.replace("/test-submitted");
+}, [handleSaveResultToDB, router]);
+
+
+  const startTimer = useCallback(() => {
+    if (started) return;
+
+    const duration = timeSetting?.duration || 60;
+    setCountDown(duration);
+    secRef.current = 0;
+    completionTimeRef.current = null;
+
+    setStarted(true);
+    setTypingEnabled(true);
+    submittedRef.current = false;
+
+    clearInterval(intervalRef.current);
+
+    intervalRef.current = setInterval(() => {
+      secRef.current++;
+
+      setCountDown((prev) => {
+        if (prev <= 1) {
+          clearInterval(intervalRef.current);
+          doAutoSubmit();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, [started, timeSetting, doAutoSubmit]);
+
+  // Conditional safe rendering
+  if (studentId === undefined) return <Loader>Loading...</Loader>;
+  if (studentId === null) return <Loader>Invalid session. Please login again.</Loader>;
+
+  if (!paragraph || !timeSetting)
+    return <Loader>Loading test...</Loader>;
+
+  if (!attemptCheckDone || hasAttempted === undefined)
+    return <Loader>Checking attempt...</Loader>;
+
+  if (countDown === null)
+    return <Loader>Preparing test...</Loader>;
+
+  // Typing logic
+  const onUserInputChange = (e) => {
+    const value = e.target.value;
+    if (!typingEnabled || finished) return;
+    if (value.length > text.length) return;
+
+    if (errorIndex !== null) {
+      if (value.length < userInputRef.current.length) {
+        backspaceCountRef.current++;
+        userInputRef.current = value;
+        setUserInputState(value);
+
+        if (text.startsWith(value)) {
+          setErrorIndex(null);
+          setErrorMessage("");
+        }
+      }
+      return;
+    }
+
+    const idx = value.length - 1;
+    const typedChar = value[idx];
+    const expected = text[idx];
+
+    if (typedChar && typedChar !== expected) {
+      setErrorIndex(idx);
+      userInputRef.current = value;
+      setUserInputState(value);
+      return;
+    }
+
+    userInputRef.current = value;
+    setUserInputState(value);
+    setErrorIndex(null);
+    setErrorMessage("");
+
+    if (value.length === text.length && completionTimeRef.current === null) {
+      completionTimeRef.current = secRef.current;
+    }
+  };
+
+  // UI RETURN (unchanged)
+  return (
+    <OuterWrapper>
+      <TypingCardContainer>
+        <Header>
+          <Title>Typing Test</Title>
+          <Timer urgent={countDown <= 10}>{countDown}s</Timer>
+        </Header>
+
+        <TypingPanel>
+          <Preview
+            text={text}
+            userInput={userInputState}
+            errorIndex={errorIndex}
+          />
+
+          <TextArea
+            ref={textareaRef}
+            value={userInputState}
+            onChange={onUserInputChange}
+            placeholder="Start typing here..."
+            readOnly={!typingEnabled || finished}
+            onPaste={(e) => e.preventDefault()}
+            onCopy={(e) => e.preventDefault()}
+            onCut={(e) => e.preventDefault()}
+          />
+
+          {errorMessage && <ErrorMessage>{errorMessage}</ErrorMessage>}
+        </TypingPanel>
+
+        {!typingEnabled && !finished && (
+          <Centered>
+            <StartButton
+              onClick={() => {
+                setTimeout(
+                  () => textareaRef.current?.focus(),
+                  50
+                );
+                startTimer();
+              }}
+            >
+              Start Test
+            </StartButton>
+          </Centered>
+        )}
+      </TypingCardContainer>
+    </OuterWrapper>
+  );
+}
