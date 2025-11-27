@@ -1,51 +1,57 @@
+import { useEffect } from "react";
+import styled from "styled-components";
+import { useRouter } from "next/router";
+
 export default function AlreadyAttempted() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // Show message for 1.8 seconds → then redirect to login
+    const t = setTimeout(() => {
+      router.replace("/login");
+    }, 1800);
+
+    return () => clearTimeout(t);
+  }, [router]);
+
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>You Have Already Attempted the Test</h1>
-        <p style={styles.subtitle}>
-          Your test response is recorded.
-        </p>
-      </div>
-    </div>
+    <Wrapper>
+      <Card>
+        <Title>You Have Already Attempted the Test</Title>
+        <Subtitle>Your response has been recorded.</Subtitle>
+      </Card>
+    </Wrapper>
   );
 }
 
-const styles = {
-  container: {
-    height: "100vh",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    background: "#f4f7ff",
-  },
-  card: {
-    background: "white",
-    padding: "40px",
-    borderRadius: "12px",
-    boxShadow: "0 6px 18px rgba(0,0,0,0.1)",
-    textAlign: "center",
-    width: "90%",
-    maxWidth: "450px",
-  },
-  title: {
-    marginBottom: "10px",
-    fontSize: "22px",
-    fontWeight: "700",
-  },
-  subtitle: {
-    marginBottom: "20px",
-    fontSize: "16px",
-    color: "#555",
-  },
-  button: {
-    padding: "12px 20px",
-    background: "#3b5bff",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontWeight: "600",
-    fontSize: "16px",
-  },
-};
+/* ---------------- STYLES ---------------- */
+
+const Wrapper = styled.div`
+  height: 100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background:#f4f7ff;
+`;
+
+const Card = styled.div`
+  background:#ffffff;
+  padding:2rem 2.5rem;
+  border-radius:12px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.1);
+  text-align:center;
+  width:90%;
+  max-width:450px;
+`;
+
+const Title = styled.h1`
+  font-size:1.5rem;
+  font-weight:700;
+  margin-bottom:0.5rem;
+`;
+
+const Subtitle = styled.p`
+  font-size:1rem;
+  color:#555;
+  margin:0;
+`;

@@ -2,25 +2,35 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
-  // ⭐ Students table
+
+  // Students table
   students: defineTable({
     name: v.string(),
-    applicationNumber: v.string(),  // username
-    dob: v.string(),                // YYYY-MM-DD
-    passwordHash: v.string(),       // SHA-256 hash
+    applicationNumber: v.string(),
+    dob: v.string(),
+    passwordHash: v.string(),
   })
     .index("by_applicationNumber", ["applicationNumber"])
     .index("by_name", ["name"]),
 
+  // Secure backend sessions
+  sessions: defineTable({
+    studentId: v.string(),     // applicationNumber
+    token: v.string(),         // session token
+    expiresAt: v.number(),     // timestamp ms
+    testActive: v.boolean()
+  })
+    .index("by_token", ["token"])
+    .index("by_studentId", ["studentId"]),
 
-  // Paragraphs table (unchanged)
+  // Paragraphs table
   paragraphs: defineTable({
     content: v.string(),
   }),
 
-  //Results table
+  // Results table
   results: defineTable({
-    studentId: v.string(),               // applicationNumber
+    studentId: v.string(),
     paragraphId: v.id("paragraphs"),
     symbols: v.number(),
     seconds: v.number(),
@@ -29,8 +39,8 @@ export default defineSchema({
     text: v.string(),
     paragraphContent: v.string(),
     originalSymbols: v.number(),
-    submittedAt: v.string(),            // ISO timestamp
+    submittedAt: v.string(),
   })
-    .index("by_student", ["studentId"])     // required for attempt blocking
-    .index("by_submittedAt", ["submittedAt"]) // required for sorted results
+    .index("by_student", ["studentId"])
+    .index("by_submittedAt", ["submittedAt"]),
 });

@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { api } from "./_generated/api";
 
 // hash string using WebCrypto SHA-256
 async function hashString(str) {
@@ -11,7 +12,9 @@ async function hashString(str) {
     .join(""); // hex string
 }
 
- //Admin: create a student record.
+/* ------------------------------------------
+   CREATE STUDENT (Admin Import CSV)
+---------------------------------------------*/
 export const createStudent = mutation({
   args: {
     name: v.string(),
@@ -24,23 +27,16 @@ export const createStudent = mutation({
       return { success: false, message: "Missing required fields" };
     }
 
-    // first 4 letters of firstName + DDMMYYYY
+    // first 4 letters + DDMMYYYY
     const firstName = name.trim().split(/\s+/)[0].toLowerCase();
     const firstFour = firstName.slice(0, 4);
 
-    // dob = "DD-MM-YYYY"
     const [dd, mm, yyyy] = dob.split("-");
-
-    // DDMMYYYY
     const ddmmyyyy = `${dd}${mm}${yyyy}`;
 
-    // final password
     const generatedPassword = `${firstFour}${ddmmyyyy}`;
-
-    // Hash password
     const passwordHash = await hashString(generatedPassword);
 
-    // Check if existing
     const existing = await ctx.db
       .query("students")
       .withIndex("by_applicationNumber", (q) =>
@@ -79,7 +75,9 @@ export const createStudent = mutation({
   },
 });
 
-// Verify student (login)
+/* ------------------------------------------
+   VERIFY STUDENT → CREATE SESSION
+---------------------------------------------*/
 export const verifyStudent = mutation({
   args: {
     username: v.optional(v.string()),
@@ -103,23 +101,43 @@ export const verifyStudent = mutation({
       .first();
 
     if (!student) {
-      return { success: false, message: "Invalid login credentials" };
+      return { success: false, message: "Invalid credentials" };
     }
 
     const incomingHash = await hashString(password);
 
     if (incomingHash !== student.passwordHash) {
-      return { success: false, message: "Invalid login credentials" };
+      return { success: false, message: "Invalid credentials" };
+    }
+
+    // ⭐ CREATE SESSION (1 hour expiry)
+    const expiresInMs = 60 * 60 * 1000;
+
+    const session = await ctx.runMutation(api.sessions.createSession, {
+      studentId: student.applicationNumber,
+      expiresInMs,
+    });
+
+    // defensive: ensure session created
+    if (!session || !session.token) {
+      return {
+        success: false,
+        message: "Failed to create session. Please try again.",
+      };
     }
 
     return {
       success: true,
       studentId: student.applicationNumber,
+      token: session.token,   // <-- returns `token`
+      expiresAt: session.expiresAt,
     };
   },
 });
 
-// checkExists
+/* ------------------------------------------
+   CHECK STUDENT EXISTS (used by /test)
+---------------------------------------------*/
 export const checkExists = query({
   args: { studentId: v.string() },
 
