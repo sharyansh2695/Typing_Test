@@ -1,3 +1,4 @@
+// pages/test.js — Patched TestPage
 import { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
 import { useRouter } from "next/router";
@@ -21,18 +22,17 @@ export default function TestPage() {
   const [fsReady, setFsReady] = useState(false);
   const [showFsWarning, setShowFsWarning] = useState(false);
 
-  /* --------------------------------------------------
-        BLOCK BACK BUTTON
-  ---------------------------------------------------- */
   useEffect(() => {
     if (typeof window === "undefined") return;
-    history.pushState(null, "", location.href);
-    window.onpopstate = () => history.pushState(null, "", location.href);
+
+    const onPop = () => {
+      if (testStartedRef.current) window.history.forward();
+    };
+
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
   }, []);
 
-  /* --------------------------------------------------
-        SESSION VALIDATION (ONCE PER SESSION)
-  ---------------------------------------------------- */
   useEffect(() => {
     if (validatedRef.current) return;
     validatedRef.current = true;
@@ -41,6 +41,17 @@ export default function TestPage() {
 
     async function validate() {
       if (testStartedRef.current) return;
+
+      const storedSid = sessionStorage.getItem("studentId");
+      const storedActive = sessionStorage.getItem("testActive") === "true";
+
+      if (storedSid) setStudentId(storedSid);
+
+      if (storedActive) {
+        testStartedRef.current = true;
+        if (mounted) setLoading(false);
+        return;
+      }
 
       const res = await fetch("/api/get-session", { credentials: "include" });
       const { token } = await res.json();
@@ -60,7 +71,7 @@ export default function TestPage() {
       }
 
       const sid = session.studentId;
-      setStudentId(sid);
+      if (mounted) setStudentId(sid);
 
       const exists = await convex.query(api.student.checkExists, {
         studentId: sid,
@@ -79,28 +90,40 @@ export default function TestPage() {
       });
 
       if (attempted) {
-        console.log("⛔ Already attempted → logout");
         await fetch("/api/logout", { method: "POST" });
         router.replace("/already-attempted");
         return;
       }
 
+      if (session.testActive) {
+        sessionStorage.setItem("studentId", sid);
+        sessionStorage.setItem("testActive", "true");
+        testStartedRef.current = true;
+        setLoading(false);
+        return;
+      }
+
       if (mounted) {
         testStartedRef.current = true;
-        await convex.mutation(api.sessions.markTestActive, { token });
+
+        try {
+          await convex.mutation(api.sessions.updateTestActive, {
+            token,
+            active: true,
+          });
+        } catch {}
+
+        sessionStorage.setItem("studentId", sid);
+        sessionStorage.setItem("testActive", "true");
+
         setLoading(false);
       }
     }
 
     validate();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    return () => (mounted = false);
+  }, [router]);
 
-  /* --------------------------------------------------
-        FULLSCREEN + KEY BLOCKING
-  ---------------------------------------------------- */
   useEffect(() => {
     if (!fsReady) return;
 
@@ -115,37 +138,26 @@ export default function TestPage() {
     document.addEventListener("fullscreenchange", onFsChange);
 
     const blockKeys = (e) => {
-      const key = e.key.toLowerCase();
+      const key = e.key?.toLowerCase?.() || "";
 
-      // ESC
       if (key === "escape") return e.preventDefault();
-
-      // Block F1–F12 ONLY
       if (/^f\d{1,2}$/.test(key)) return e.preventDefault();
-
-      // ALT
       if (e.altKey) return e.preventDefault();
-
-      // Win / Cmd
       if (e.metaKey) return e.preventDefault();
-
-      // CTRL shortcuts
       if (
         (e.ctrlKey && key === "r") ||
         (e.ctrlKey && key === "w") ||
         (e.ctrlKey && key === "p") ||
         (e.ctrlKey && key === "s") ||
         (e.ctrlKey && e.shiftKey && key === "i")
-      ) {
-        return e.preventDefault();
-      }
+      ) return e.preventDefault();
     };
 
     window.addEventListener("keydown", blockKeys);
     window.oncontextmenu = (e) => e.preventDefault();
 
     const onVisibility = () => {
-      if (document.hidden) alert("⚠️ You minimized or switched tabs. Please return.");
+      if (document.hidden) alert("⚠️ You minimized or switched tabs.");
     };
     document.addEventListener("visibilitychange", onVisibility);
 
@@ -184,7 +196,7 @@ export default function TestPage() {
       {!fsReady && (
         <Overlay>
           <h1>Start Your Typing Test</h1>
-          <p>The test will run in fullscreen mode.</p>
+          <p>The test runs in fullscreen mode.</p>
           <OverlayBtn onClick={startFullscreen}>Start Test</OverlayBtn>
         </Overlay>
       )}
@@ -192,8 +204,8 @@ export default function TestPage() {
       {showFsWarning && (
         <Overlay>
           <h1>You left fullscreen</h1>
-          <p>Your test is still running. Please return to fullscreen.</p>
-          <OverlayBtn onClick={resumeFullscreen}>Resume Fullscreen</OverlayBtn>
+          <p>Please return to fullscreen.</p>
+          <OverlayBtn onClick={resumeFullscreen}>Resume</OverlayBtn>
         </Overlay>
       )}
     </PageWrapper>

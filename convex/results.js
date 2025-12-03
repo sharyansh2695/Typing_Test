@@ -3,10 +3,10 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
-// check if student alreasy attempted using applicationNumber
+// Check if student already attempted
 export const hasAttempted = query({
   args: {
-    studentId: v.string(), // applicationNumber
+    studentId: v.string(),
     paragraphId: v.id("paragraphs"),
   },
 
@@ -21,10 +21,10 @@ export const hasAttempted = query({
   },
 });
 
-// save result
+// Save result
 export const saveResult = mutation({
   args: {
-    studentId: v.string(), // applicationNumber
+    studentId: v.string(),
     paragraphId: v.id("paragraphs"),
     symbols: v.number(),
     seconds: v.number(),
@@ -36,7 +36,12 @@ export const saveResult = mutation({
   handler: async (ctx, args) => {
     const { studentId, paragraphId } = args;
 
-    // BLOCK REPEAT ATTEMPT
+    // ✅ FIX 1 — reject invalid payload (prevents crashes)
+    if (!studentId || !paragraphId) {
+      return { success: false, message: "Invalid result payload." };
+    }
+
+    // Block repeated attempts
     const existing = await ctx.db
       .query("results")
       .withIndex("by_student", (q) => q.eq("studentId", studentId))
@@ -48,7 +53,13 @@ export const saveResult = mutation({
     }
 
     const paragraph = await ctx.db.get(paragraphId);
-    const paragraphContent = paragraph?.content ?? "";
+
+    // ✅ FIX 2 — paragraph not found safety
+    if (!paragraph) {
+      return { success: false, message: "Paragraph not found." };
+    }
+
+    const paragraphContent = paragraph.content ?? "";
     const originalSymbols = paragraphContent.length;
 
     const result = await ctx.db.insert("results", {
@@ -68,7 +79,7 @@ export const saveResult = mutation({
   },
 });
 
-// get all results -admin
+// Get all results - admin
 export const getAllResults = query({
   handler: async (ctx) => {
     return await ctx.db

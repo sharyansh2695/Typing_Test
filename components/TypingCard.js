@@ -1,4 +1,3 @@
-// --- Same imports ---
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import styled from "styled-components";
 import Preview from "./Preview";
@@ -9,8 +8,6 @@ import { ConvexReactClient } from "convex/react";
 
 const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL);
 
-
-// --- Styled components unchanged ---
 const Loader = styled.div`
   text-align: center;
   padding: 1.5rem;
@@ -26,29 +23,18 @@ const OuterWrapper = styled.div`
   justify-content: center;
 `;
 
-
-
 const TypingCardContainer = styled.div`
   background: #f8faff;
   padding: 1.5rem 2rem;
-
-  width: 98vw;          /* 🔥 Full screen width */
-  max-width: 1800px;     /* large system panel */
+  width: 98vw;
+  max-width: 1800px;
   margin: 10px auto;
-
   border-radius: 12px;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
-
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
 `;
-
-
-
-
-
-
 
 const Header = styled.div`
   display: flex;
@@ -83,65 +69,21 @@ const TypingPanel = styled.div`
   border: 1px solid #a4c7f3;
   border-radius: 12px;
   padding: 1.2rem;
-
   display: flex;
   flex-direction: column;
   gap: 1rem;
 `;
 
-
-
-
-// const TextArea = styled.textarea`
-//   width: 100%;
-//   min-height: 120px;
-//   border-radius: 10px;
-//   border: 1px solid #b0cef5;
-//   padding: 12px;
-//   font-size: 1rem;
-//   background: #ffffff;
-//   color: #111;
-//   resize: none;
-// `;
-
-// const TextArea = styled.textarea`
-//   width: 100%;
-//   min-height: 180px;              /* 🔥 larger height */
-//   border-radius: 12px;
-//   border: 2px solid #90b4f5;      /* stronger border */
-//   padding: 18px;
-//   font-size: 1.35rem;             /* 🔥 bigger text */
-//   background: #ffffff;
-//   color: #111;
-//   resize: none;
-//   line-height: 1.8;
-//   letter-spacing: 0.5px;
-
-//   /* Improve typing visibility */
-//   outline: none;
-
-//   &:focus {
-//     border-color: #1d76ff;
-//     box-shadow: 0 0 4px rgba(0, 123, 255, 0.6);
-//   }
-// `;
-
 const TextArea = styled.textarea`
   width: 100%;
   min-height: 140px;
-
   padding: 14px;
   font-size: 1.2rem;
-
   background: #fff;
   border-radius: 10px;
   border: 1px solid #b0cef5;
   resize: none;
 `;
-
-
-
-
 
 const ErrorMessage = styled.div`
   color: #d93025;
@@ -164,9 +106,6 @@ const StartButton = styled.button`
   border: none;
 `;
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//               COMPONENT START
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 export default function TypingCard({ studentId }) {
   const router = useRouter();
 
@@ -191,17 +130,17 @@ export default function TypingCard({ studentId }) {
   const submittedRef = useRef(false);
   const textareaRef = useRef(null);
 
-  // Load sessionActive from TestPage
+  // Restore active test from sessionStorage
   useEffect(() => {
-    console.log("🧪 TypingCard sees sessionActive =", window.__sessionActive);
-    setIsActive(window.__sessionActive || false);
+    const active = sessionStorage.getItem("testActive") === "true";
+    setIsActive(active);
   }, []);
 
   const paragraph = useQuery(api.paragraphs.getParagraph);
   const timeSetting = useQuery(api.timeSettings.getTimeSetting);
   const saveResult = useMutation(api.results.saveResult);
 
-  // Reset on paragraph change
+  // Reset typing state when paragraph changes
   useEffect(() => {
     if (!paragraph || !timeSetting) return;
 
@@ -216,20 +155,16 @@ export default function TypingCard({ studentId }) {
       backspaceCountRef.current = 0;
       completionTimeRef.current = null;
       setCountDown(timeSetting.duration || 60);
-
       setTypingEnabled(false);
       setStarted(false);
       setFinished(false);
       submittedRef.current = false;
-
       setErrorIndex(null);
       setErrorMessage("");
     }
   }, [paragraph, timeSetting]);
 
-  useEffect(() => {
-    return () => clearInterval(intervalRef.current);
-  }, []);
+  useEffect(() => () => clearInterval(intervalRef.current), []);
 
   const handleSaveResultToDB = useCallback(
     async ({ input, seconds }) => {
@@ -241,14 +176,16 @@ export default function TypingCard({ studentId }) {
       const secondsTaken = completionTimeRef.current ?? seconds;
       const totalTyped = input.length + backspaceCountRef.current;
       const mistakes = backspaceCountRef.current;
+
       const accuracy =
         totalTyped === 0
           ? 0
           : Math.round(((totalTyped - mistakes) / totalTyped) * 100);
+
       const wpm = Math.round((correctChars * 60) / (5 * secondsTaken));
 
       await saveResult({
-        studentId,
+        studentId: studentId ?? sessionStorage.getItem("studentId"),
         paragraphId: paragraphIdRef.current,
         symbols: correctChars,
         seconds: secondsTaken,
@@ -273,36 +210,36 @@ export default function TypingCard({ studentId }) {
       seconds: secRef.current,
     });
 
+    sessionStorage.removeItem("testActive");
+    sessionStorage.removeItem("studentId");
+
     await fetch("/api/logout", { method: "POST" });
     document.cookie = "session_token=; Max-Age=0; path=/; secure;";
 
     router.replace("/test-submitted");
   }, [handleSaveResultToDB, router]);
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🔥 START TEST — MARK testActive=true (FIXED)
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const handleStartTest = async () => {
     const tokenRes = await fetch("/api/get-session", {
       credentials: "include",
     });
-
     const { token } = await tokenRes.json();
 
     if (token) {
-      await convex.mutation(api.sessions.updateTestActive, {
-        token,
-        active: true,
-      });
+      try {
+        await convex.mutation(api.sessions.updateTestActive, {
+          token,
+          active: true,
+        });
+      } catch {}
 
-      console.log("TypingCard set testActive → true");
+      sessionStorage.setItem("testActive", "true");
+      if (studentId) sessionStorage.setItem("studentId", studentId);
 
-      window.__sessionActive = true;
       setIsActive(true);
     }
 
     setTimeout(() => textareaRef.current?.focus(), 50);
-
     startTimer();
   };
 
@@ -335,64 +272,52 @@ export default function TypingCard({ studentId }) {
     }, 1000);
   }, [started, timeSetting, doAutoSubmit]);
 
-  if (!studentId) return <Loader>Loading...</Loader>;
+  if (!studentId && !sessionStorage.getItem("studentId"))
+    return <Loader>Loading...</Loader>;
   if (!paragraph || !timeSetting) return <Loader>Loading test...</Loader>;
   if (countDown === null) return <Loader>Preparing...</Loader>;
 
   const onUserInputChange = (e) => {
-  if (!isActive) return;
-  if (!typingEnabled || finished) return;
+    if (!isActive || !typingEnabled || finished) return;
 
-  const value = e.target.value;
+    const value = e.target.value;
 
-  // 🔹 Always keep track of how many characters are typed
-  setCursorIndex(value.length);
+    setCursorIndex(value.length);
 
-  if (value.length > text.length) return;
+    if (value.length > text.length) return;
 
-  // 🔹 If we are already in an error state
-  if (errorIndex !== null) {
-    // backspace case
-    if (value.length < userInputRef.current.length) {
-      backspaceCountRef.current++;
+    if (errorIndex !== null) {
+      if (value.length < userInputRef.current.length) {
+        backspaceCountRef.current++;
+        userInputRef.current = value;
+        setUserInputState(value);
+        setCursorIndex(value.length);
+
+        if (text.startsWith(value)) {
+          setErrorIndex(null);
+          setErrorMessage("");
+        }
+      }
+      return;
+    }
+
+    const idx = value.length - 1;
+    if (value[idx] !== text[idx] && value[idx] !== undefined) {
+      setErrorIndex(idx);
       userInputRef.current = value;
       setUserInputState(value);
-
-      setCursorIndex(value.length); // keep preview scroll in sync
-
-      if (text.startsWith(value)) {
-        setErrorIndex(null);
-        setErrorMessage("");
-      }
+      return;
     }
-    return;
-  }
 
-  // 🔹 Check for new error
-  const idx = value.length - 1;
-  if (value[idx] !== text[idx] && value[idx] !== undefined) {
-    setErrorIndex(idx);
     userInputRef.current = value;
     setUserInputState(value);
+    setErrorIndex(null);
+    setCursorIndex(value.length);
 
-    setCursorIndex(value.length); // update on error as well
-
-    return;
-  }
-
-  // 🔹 Normal correct typing path
-  userInputRef.current = value;
-  setUserInputState(value);
-  setErrorIndex(null);
-  setErrorMessage("");
-
-  setCursorIndex(value.length); // update on correct typing too
-
-  if (value.length === text.length && !completionTimeRef.current) {
-    completionTimeRef.current = secRef.current;
-  }
-};
-
+    if (value.length === text.length && !completionTimeRef.current) {
+      completionTimeRef.current = secRef.current;
+    }
+  };
 
   return (
     <OuterWrapper>
@@ -415,7 +340,11 @@ export default function TypingCard({ studentId }) {
             value={userInputState}
             onChange={onUserInputChange}
             readOnly={!typingEnabled || finished || !isActive}
-            placeholder={isActive ? "Start typing..." : "Press Start Test"}
+            placeholder={
+              isActive
+                ? "Please click on Start Test Button to start the test.."
+                : "Press Start Test"
+            }
             onPaste={(e) => e.preventDefault()}
             onCopy={(e) => e.preventDefault()}
             onCut={(e) => e.preventDefault()}
