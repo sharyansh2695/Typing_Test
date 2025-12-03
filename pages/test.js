@@ -15,11 +15,14 @@ export default function TestPage() {
   const [currentSpeed, setCurrentSpeed] = useState(0);
   const [studentId, setStudentId] = useState(null);
 
-  // Prevent double validation (Next.js strict mode)
   const validatedRef = useRef(false);
+  const testStartedRef = useRef(false);
+
+  const [fsReady, setFsReady] = useState(false);
+  const [showFsWarning, setShowFsWarning] = useState(false);
 
   /* --------------------------------------------------
-     BLOCK BACK BUTTON
+        BLOCK BACK BUTTON
   ---------------------------------------------------- */
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -28,7 +31,7 @@ export default function TestPage() {
   }, []);
 
   /* --------------------------------------------------
-     SESSION VALIDATION (RUN ONCE)
+        SESSION VALIDATION (ONCE PER SESSION)
   ---------------------------------------------------- */
   useEffect(() => {
     if (validatedRef.current) return;
@@ -37,61 +40,39 @@ export default function TestPage() {
     let mounted = true;
 
     async function validate() {
-      console.log("🔍 VALIDATING SESSION...");
+      if (testStartedRef.current) return;
 
-      /** 1️⃣ Get session cookie */
       const res = await fetch("/api/get-session", { credentials: "include" });
       const { token } = await res.json();
 
-      if (!token) {
-        router.replace("/login");
-        return;
-      }
+      if (!token) return router.replace("/login");
 
-      /** 2️⃣ Validate session */
       let session;
       try {
         session = await convex.query(api.sessions.validateSession, { token });
       } catch {
-        router.replace("/login");
-        return;
+        return router.replace("/login");
       }
 
-      /** ❌ Invalid → logout */
       if (!session?.valid) {
-        console.log("❌ INVALID SESSION");
         await fetch("/api/logout", { method: "POST" });
-        router.replace("/login");
-        return;
+        return router.replace("/login");
       }
 
-      /** 3️⃣ Save student ID */
       const sid = session.studentId;
       setStudentId(sid);
 
-      /** 4️⃣ Sync globals for TypingCard */
-      window.__studentId = sid;
-      window.__sessionActive = session.testActive;
-
-      /** 5️⃣ Verify student exists */
       const exists = await convex.query(api.student.checkExists, {
         studentId: sid,
       });
+      if (!exists) return router.replace("/login");
 
-      if (!exists) {
-        console.log("❌ Student not found");
-        router.replace("/login");
-        return;
-      }
-
-      /** 6️⃣ Load paragraph */
       const paragraph = await convex.query(api.paragraphs.getParagraph);
       if (!paragraph?._id) {
         alert("No test available.");
         return;
       }
 
-      /** 7️⃣ Prevent retake */
       const attempted = await convex.query(api.results.hasAttempted, {
         studentId: sid,
         paragraphId: paragraph._id,
@@ -104,41 +85,146 @@ export default function TestPage() {
         return;
       }
 
-      /** 8️⃣ All checks passed → allow test */
       if (mounted) {
-        console.log("✅ Access granted");
+        testStartedRef.current = true;
+        await convex.mutation(api.sessions.markTestActive, { token });
         setLoading(false);
       }
     }
 
     validate();
-    return () => (mounted = false);
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   /* --------------------------------------------------
-     LOADING UI
+        FULLSCREEN + KEY BLOCKING
   ---------------------------------------------------- */
+  useEffect(() => {
+    if (!fsReady) return;
+
+    const onFsChange = () => {
+      const isFs =
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement;
+
+      if (!isFs) setShowFsWarning(true);
+    };
+    document.addEventListener("fullscreenchange", onFsChange);
+
+    const blockKeys = (e) => {
+      const key = e.key.toLowerCase();
+
+      // ESC
+      if (key === "escape") return e.preventDefault();
+
+      // Block F1–F12 ONLY
+      if (/^f\d{1,2}$/.test(key)) return e.preventDefault();
+
+      // ALT
+      if (e.altKey) return e.preventDefault();
+
+      // Win / Cmd
+      if (e.metaKey) return e.preventDefault();
+
+      // CTRL shortcuts
+      if (
+        (e.ctrlKey && key === "r") ||
+        (e.ctrlKey && key === "w") ||
+        (e.ctrlKey && key === "p") ||
+        (e.ctrlKey && key === "s") ||
+        (e.ctrlKey && e.shiftKey && key === "i")
+      ) {
+        return e.preventDefault();
+      }
+    };
+
+    window.addEventListener("keydown", blockKeys);
+    window.oncontextmenu = (e) => e.preventDefault();
+
+    const onVisibility = () => {
+      if (document.hidden) alert("⚠️ You minimized or switched tabs. Please return.");
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("keydown", blockKeys);
+      window.oncontextmenu = null;
+    };
+  }, [fsReady]);
+
+  async function startFullscreen() {
+    try {
+      await document.documentElement.requestFullscreen();
+    } catch {}
+    setFsReady(true);
+  }
+
+  async function resumeFullscreen() {
+    try {
+      await document.documentElement.requestFullscreen();
+    } catch {}
+    setShowFsWarning(false);
+  }
+
   if (loading) return <div>Validating session…</div>;
 
-  /* --------------------------------------------------
-     MAIN UI
-  ---------------------------------------------------- */
   return (
     <PageWrapper>
       <NavHeader currentSpeed={currentSpeed} />
-      <MainContent>
-        <Heading>Typing Test Portal</Heading>
 
-        <TypingCard
-          homepageCallback={setCurrentSpeed}
-          studentId={studentId}
-        />
+      <MainContent>
+        <TypingCard homepageCallback={setCurrentSpeed} studentId={studentId} />
       </MainContent>
+
+      {!fsReady && (
+        <Overlay>
+          <h1>Start Your Typing Test</h1>
+          <p>The test will run in fullscreen mode.</p>
+          <OverlayBtn onClick={startFullscreen}>Start Test</OverlayBtn>
+        </Overlay>
+      )}
+
+      {showFsWarning && (
+        <Overlay>
+          <h1>You left fullscreen</h1>
+          <p>Your test is still running. Please return to fullscreen.</p>
+          <OverlayBtn onClick={resumeFullscreen}>Resume Fullscreen</OverlayBtn>
+        </Overlay>
+      )}
     </PageWrapper>
   );
 }
 
-/* ---------------- STYLES ---------------- */
+const Overlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(255,255,255,0.95);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+`;
+
+const OverlayBtn = styled.button`
+  padding: 14px 26px;
+  font-size: 18px;
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 20px;
+`;
 
 const PageWrapper = styled.div`
   width: 100%;
@@ -150,11 +236,4 @@ const MainContent = styled.div`
   max-width: 900px;
   margin: auto;
   padding: 20px;
-`;
-
-const Heading = styled.h1`
-  font-size: 32px;
-  text-align: center;
-  margin-bottom: 20px;
-  font-weight: 700;
 `;

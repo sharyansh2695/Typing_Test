@@ -9,6 +9,7 @@ import { ConvexReactClient } from "convex/react";
 
 const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL);
 
+
 // --- Styled components unchanged ---
 const Loader = styled.div`
   text-align: center;
@@ -18,24 +19,36 @@ const Loader = styled.div`
 `;
 
 const OuterWrapper = styled.div`
+  width: 100%;
+  padding: 0;
+  margin: 0;
   display: flex;
   justify-content: center;
-  align-items: center;
-  min-height: 85vh;
-  width: 100%;
 `;
+
+
 
 const TypingCardContainer = styled.div`
   background: #f8faff;
+  padding: 1.5rem 2rem;
+
+  width: 98vw;          /* 🔥 Full screen width */
+  max-width: 1800px;     /* large system panel */
+  margin: 10px auto;
+
   border-radius: 12px;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
-  padding: 2rem;
-  width: 90%;
-  max-width: 1000px;
+
   display: flex;
   flex-direction: column;
-  gap: 1.4rem;
+  gap: 1.5rem;
 `;
+
+
+
+
+
+
 
 const Header = styled.div`
   display: flex;
@@ -65,26 +78,70 @@ const Timer = styled.div`
 `;
 
 const TypingPanel = styled.div`
+  width: 100%;
   background: #e7f0ff;
   border: 1px solid #a4c7f3;
   border-radius: 12px;
   padding: 1.2rem;
+
   display: flex;
   flex-direction: column;
   gap: 1rem;
 `;
 
+
+
+
+// const TextArea = styled.textarea`
+//   width: 100%;
+//   min-height: 120px;
+//   border-radius: 10px;
+//   border: 1px solid #b0cef5;
+//   padding: 12px;
+//   font-size: 1rem;
+//   background: #ffffff;
+//   color: #111;
+//   resize: none;
+// `;
+
+// const TextArea = styled.textarea`
+//   width: 100%;
+//   min-height: 180px;              /* 🔥 larger height */
+//   border-radius: 12px;
+//   border: 2px solid #90b4f5;      /* stronger border */
+//   padding: 18px;
+//   font-size: 1.35rem;             /* 🔥 bigger text */
+//   background: #ffffff;
+//   color: #111;
+//   resize: none;
+//   line-height: 1.8;
+//   letter-spacing: 0.5px;
+
+//   /* Improve typing visibility */
+//   outline: none;
+
+//   &:focus {
+//     border-color: #1d76ff;
+//     box-shadow: 0 0 4px rgba(0, 123, 255, 0.6);
+//   }
+// `;
+
 const TextArea = styled.textarea`
   width: 100%;
-  min-height: 120px;
+  min-height: 140px;
+
+  padding: 14px;
+  font-size: 1.2rem;
+
+  background: #fff;
   border-radius: 10px;
   border: 1px solid #b0cef5;
-  padding: 12px;
-  font-size: 1rem;
-  background: #ffffff;
-  color: #111;
   resize: none;
 `;
+
+
+
+
 
 const ErrorMessage = styled.div`
   color: #d93025;
@@ -121,6 +178,7 @@ export default function TypingCard({ studentId }) {
   const [errorIndex, setErrorIndex] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [userInputState, setUserInputState] = useState("");
+  const [cursorIndex, setCursorIndex] = useState(0);
 
   const [isActive, setIsActive] = useState(false);
 
@@ -282,43 +340,59 @@ export default function TypingCard({ studentId }) {
   if (countDown === null) return <Loader>Preparing...</Loader>;
 
   const onUserInputChange = (e) => {
-    if (!isActive) return;
-    if (!typingEnabled || finished) return;
+  if (!isActive) return;
+  if (!typingEnabled || finished) return;
 
-    const value = e.target.value;
-    if (value.length > text.length) return;
+  const value = e.target.value;
 
-    if (errorIndex !== null) {
-      if (value.length < userInputRef.current.length) {
-        backspaceCountRef.current++;
-        userInputRef.current = value;
-        setUserInputState(value);
+  // 🔹 Always keep track of how many characters are typed
+  setCursorIndex(value.length);
 
-        if (text.startsWith(value)) {
-          setErrorIndex(null);
-          setErrorMessage("");
-        }
-      }
-      return;
-    }
+  if (value.length > text.length) return;
 
-    const idx = value.length - 1;
-    if (value[idx] !== text[idx] && value[idx] !== undefined) {
-      setErrorIndex(idx);
+  // 🔹 If we are already in an error state
+  if (errorIndex !== null) {
+    // backspace case
+    if (value.length < userInputRef.current.length) {
+      backspaceCountRef.current++;
       userInputRef.current = value;
       setUserInputState(value);
-      return;
-    }
 
+      setCursorIndex(value.length); // keep preview scroll in sync
+
+      if (text.startsWith(value)) {
+        setErrorIndex(null);
+        setErrorMessage("");
+      }
+    }
+    return;
+  }
+
+  // 🔹 Check for new error
+  const idx = value.length - 1;
+  if (value[idx] !== text[idx] && value[idx] !== undefined) {
+    setErrorIndex(idx);
     userInputRef.current = value;
     setUserInputState(value);
-    setErrorIndex(null);
-    setErrorMessage("");
 
-    if (value.length === text.length && !completionTimeRef.current) {
-      completionTimeRef.current = secRef.current;
-    }
-  };
+    setCursorIndex(value.length); // update on error as well
+
+    return;
+  }
+
+  // 🔹 Normal correct typing path
+  userInputRef.current = value;
+  setUserInputState(value);
+  setErrorIndex(null);
+  setErrorMessage("");
+
+  setCursorIndex(value.length); // update on correct typing too
+
+  if (value.length === text.length && !completionTimeRef.current) {
+    completionTimeRef.current = secRef.current;
+  }
+};
+
 
   return (
     <OuterWrapper>
@@ -333,6 +407,7 @@ export default function TypingCard({ studentId }) {
             text={text}
             userInput={userInputState}
             errorIndex={errorIndex}
+            cursorIndex={cursorIndex}
           />
 
           <TextArea

@@ -113,7 +113,6 @@ export default function LoginPage() {
   return (
     <Container>
       <Card>
-        <Logo>Typing Test Portal</Logo>
         <SubText>Login to begin your test</SubText>
 
         <Form onSubmit={handleSubmit}>
