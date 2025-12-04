@@ -169,6 +169,47 @@ export default function TestPage() {
     };
   }, [fsReady]);
 
+  useEffect(() => {
+  if (!showFsWarning) return;
+
+  // Always keep user locked on the same page
+  const enforceStay = () => {
+    // Force browser to move forward immediately
+    setTimeout(() => {
+      window.history.forward();
+    }, 0);
+  };
+
+  // Prime the history with a dummy state
+  window.history.pushState(null, "", window.location.href);
+  window.history.pushState(null, "", window.location.href);
+
+  // Catch "Back" events
+  window.addEventListener("popstate", enforceStay);
+
+  // Block ALT+Left / Right
+  const blockAltNav = (e) => {
+    if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      e.preventDefault();
+    }
+  };
+  window.addEventListener("keydown", blockAltNav);
+
+  // Block refresh/close
+  const beforeUnload = (e) => {
+    e.preventDefault();
+    e.returnValue = "";
+  };
+  window.addEventListener("beforeunload", beforeUnload);
+
+  return () => {
+    window.removeEventListener("popstate", enforceStay);
+    window.removeEventListener("keydown", blockAltNav);
+    window.removeEventListener("beforeunload", beforeUnload);
+  };
+}, [showFsWarning]);
+
+
   async function startFullscreen() {
     try {
       await document.documentElement.requestFullscreen();
